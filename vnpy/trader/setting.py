@@ -30,12 +30,12 @@ SETTINGS: Dict[str, Any] = {
     "datafeed.password": "",
 
     "database.timezone": get_localzone_name(),
-    "database.name": "sqlite",
-    "database.database": "database.db",
-    "database.host": "",
-    "database.port": 0,
-    "database.user": "",
-    "database.password": ""
+    "database.name": "dolphindb",
+    "database.database": "CTA_TESTTRADE",
+    "database.host": "192.168.50.238",
+    "database.port": 8848,
+    "database.user": "admin",
+    "database.password": "zaq1@WSXcde3"
 }
 
 

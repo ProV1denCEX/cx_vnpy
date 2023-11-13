@@ -313,7 +313,10 @@ class CtpMdApi(MdApi):
 
         timestamp: str = f"{date_str} {data['UpdateTime']}.{data['UpdateMillisec']}"
         dt: datetime = datetime.strptime(timestamp, "%Y%m%d %H:%M:%S.%f")
-        dt: datetime = dt.replace(tzinfo=CHINA_TZ)
+        # dt: datetime = dt.replace(tzinfo=CHINA_TZ)
+
+        local_dt: datetime = datetime.now()
+        # local_dt: datetime = local_dt.replace(tzinfo=CHINA_TZ)
 
         tick: TickData = TickData(
             symbol=symbol,
@@ -321,7 +324,7 @@ class CtpMdApi(MdApi):
             datetime=dt,
             name=contract.name,
             volume=data["Volume"],
-            turnover=data["Turnover"],
+            turnover=adjust_turnover(data["Turnover"], contract),
             open_interest=data["OpenInterest"],
             last_price=adjust_price(data["LastPrice"]),
             limit_up=data["UpperLimitPrice"],
@@ -334,7 +337,8 @@ class CtpMdApi(MdApi):
             ask_price_1=adjust_price(data["AskPrice1"]),
             bid_volume_1=data["BidVolume1"],
             ask_volume_1=data["AskVolume1"],
-            gateway_name=self.gateway_name
+            gateway_name=self.gateway_name,
+            localtime=local_dt
         )
 
         if data["BidVolume2"] or data["AskVolume2"]:
@@ -866,4 +870,12 @@ def adjust_price(price: float) -> float:
     """将异常的浮点数最大值（MAX_FLOAT）数据调整为0"""
     if price == MAX_FLOAT:
         price = 0
-    return price
+
+    return round(price, 5)
+
+
+def adjust_turnover(turnover: float, contract: ContractData) -> float:
+    if contract.exchange == Exchange.CZCE:
+        turnover *= contract.size
+
+    return round(turnover, 2)

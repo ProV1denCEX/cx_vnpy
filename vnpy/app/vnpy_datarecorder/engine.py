@@ -54,7 +54,7 @@ class RecorderEngine(BaseEngine):
 
         self.database: BaseDatabase = get_database()
 
-        self.load_setting()
+        # self.load_setting()
         self.register_event()
         self.start()
         self.put_event()

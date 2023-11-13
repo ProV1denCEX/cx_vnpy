@@ -333,7 +333,11 @@ class LogEngine(BaseEngine):
         Process log event.
         """
         log: LogData = event.data
-        self.logger.log(log.level, log.msg)
+        if isinstance(log, LogData):
+            self.logger.log(log.level, log.msg)
+
+        elif isinstance(log, str):
+            self.logger.log(logging.INFO, log)
 
 
 class OmsEngine(BaseEngine):

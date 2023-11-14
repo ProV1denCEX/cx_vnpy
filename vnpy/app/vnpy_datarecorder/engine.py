@@ -210,13 +210,13 @@ class RecorderEngine(BaseEngine):
             return
         self.timer_count = 0
 
-        for bars in self.bars.values():
-            self.queue.put(("bar", bars))
-        self.bars.clear()
+        if self.bars:
+            self.queue.put(("bar", self.bars.copy()))
+            self.bars.clear()
 
-        for ticks in self.ticks.values():
-            self.queue.put(("tick", ticks))
-        self.ticks.clear()
+        if self.ticks:
+            self.queue.put(("tick", self.ticks.copy()))
+            self.ticks.clear()
 
     def process_tick_event(self, event: Event) -> None:
         """"""

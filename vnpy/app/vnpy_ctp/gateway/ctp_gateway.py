@@ -1,5 +1,5 @@
 import sys
-from datetime import datetime
+from datetime import datetime, time, timedelta
 from time import sleep
 from typing import Dict, List, Tuple
 from pathlib import Path
@@ -131,6 +131,16 @@ CHINA_TZ = ZoneInfo("Asia/Shanghai")       # 中国时区
 # 合约数据全局缓存字典
 symbol_contract_map: Dict[str, ContractData] = {}
 
+# trade start and end
+DAY_START = time(9, 15)
+DAY_END = time(15, 15)
+
+NIGHT_START = time(20, 45)
+NIGHT_END = time(23, 30)
+
+REST_START = time(10, 15)
+REST_END = time(10, 30)
+
 
 class CtpGateway(BaseGateway):
     """
@@ -260,6 +270,7 @@ class CtpMdApi(MdApi):
         self.brokerid: str = ""
 
         self.current_date: str = datetime.now().strftime("%Y%m%d")
+        self.last_tick_time = {}
 
     def onFrontConnected(self) -> None:
         """服务器连接成功回报"""
@@ -305,6 +316,14 @@ class CtpMdApi(MdApi):
         if not contract:
             return
 
+        # 各种过滤，尽可能节省开销：过滤空价格、量的tick，触发频繁
+        last_price = adjust_price(data["LastPrice"])
+        turnover = adjust_turnover(data["Turnover"], contract)
+        volume = data["Volume"]
+
+        if last_price == 0 or turnover == 0 or volume == 0:
+            return
+
         # 对大商所的交易日字段取本地日期
         if not data["ActionDay"] or contract.exchange == Exchange.DCE:
             date_str: str = self.current_date
@@ -318,15 +337,36 @@ class CtpMdApi(MdApi):
         local_dt: datetime = datetime.now()
         # local_dt: datetime = local_dt.replace(tzinfo=CHINA_TZ)
 
+        # 过滤非交易时间的tick
+        tick_time = dt.time()
+        if not (
+            (DAY_START <= tick_time <= DAY_END)
+            or (NIGHT_START <= tick_time <= NIGHT_END)
+        ):
+            return
+
+        if contract.exchange in {Exchange.SHFE, Exchange.DCE, Exchange.CZCE} and REST_START <= tick_time < REST_END:
+            return
+
+        # 过滤与本机时间差距较大的tick，发生频率一般
+        if abs(dt - local_dt) > timedelta(minutes=5):
+            return
+
+        # 过滤较老的tick，发生频率较高
+        if symbol in self.last_tick_time and dt < self.last_tick_time[symbol]:
+            return
+
+        self.last_tick_time[symbol] = dt
+
         tick: TickData = TickData(
             symbol=symbol,
             exchange=contract.exchange,
             datetime=dt,
             name=contract.name,
-            volume=data["Volume"],
-            turnover=adjust_turnover(data["Turnover"], contract),
+            volume=volume,
+            turnover=turnover,
             open_interest=data["OpenInterest"],
-            last_price=adjust_price(data["LastPrice"]),
+            last_price=last_price,
             limit_up=data["UpperLimitPrice"],
             limit_down=data["LowerLimitPrice"],
             open_price=adjust_price(data["OpenPrice"]),
@@ -659,6 +699,11 @@ class CtpTdApi(TdApi):
         order_ref: str = data["OrderRef"]
         orderid: str = f"{frontid}_{sessionid}_{order_ref}"
 
+        status: Status = STATUS_CTP2VT.get(data["OrderStatus"], None)
+        if not status:
+            self.gateway.write_log(f"收到不支持的委托状态，委托号：{orderid}")
+            return
+
         timestamp: str = f"{data['InsertDate']} {data['InsertTime']}"
         dt: datetime = datetime.strptime(timestamp, "%Y%m%d %H:%M:%S")
         dt: datetime = dt.replace(tzinfo=CHINA_TZ)
@@ -679,7 +724,7 @@ class CtpTdApi(TdApi):
             price=data["LimitPrice"],
             volume=data["VolumeTotalOriginal"],
             traded=data["VolumeTraded"],
-            status=STATUS_CTP2VT[data["OrderStatus"]],
+            status=status,
             datetime=dt,
             gateway_name=self.gateway_name
         )

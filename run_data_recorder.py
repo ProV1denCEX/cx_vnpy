@@ -20,11 +20,12 @@ SETTINGS["log.console"] = True
 
 
 # Chinese futures market trading period (day/night)
+# 多给点时间供数据库写入
 DAY_START = time(8, 45)
-DAY_END = time(15, 45)
+DAY_END = time(16, 45)
 
 NIGHT_START = time(20, 45)
-NIGHT_END = time(2, 45)
+NIGHT_END = time(3, 0)
 
 
 def check_trading_period():
@@ -33,7 +34,7 @@ def check_trading_period():
 
     trading = False
     if (
-        (current_time >= DAY_START and current_time <= DAY_END)
+        (DAY_START <= current_time <= DAY_END)
         or (current_time >= NIGHT_START)
         or (current_time <= NIGHT_END)
     ):
@@ -72,7 +73,7 @@ def run_child():
             for i in contracts:
                 if i.product == Product.FUTURES:
                     recorder.add_tick_recording(i.vt_symbol)
-                    # recorder.add_bar_recording(i.vt_symbol)
+                    recorder.add_bar_recording(i.vt_symbol)
 
             break
 

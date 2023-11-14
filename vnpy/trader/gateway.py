@@ -1,5 +1,4 @@
 from abc import ABC, abstractmethod
-from datetime import time, timedelta
 from typing import Any, Dict, List, Optional, Callable
 from copy import copy
 
@@ -31,13 +30,6 @@ from .object import (
     Exchange,
     BarData
 )
-
-
-DAY_START = time(9, 15)
-DAY_END = time(15, 15)
-
-NIGHT_START = time(20, 45)
-NIGHT_END = time(23, 30)
 
 
 class BaseGateway(ABC):
@@ -93,8 +85,6 @@ class BaseGateway(ABC):
         self.event_engine: EventEngine = event_engine
         self.gateway_name: str = gateway_name
 
-        self.last_tick_time = {}
-
     def on_event(self, type: str, data: Any = None) -> None:
         """
         General event push.
@@ -107,9 +97,8 @@ class BaseGateway(ABC):
         Tick event push.
         Tick event of a specific vt_symbol is also pushed.
         """
-        if self.validate_tick(tick):
-            self.on_event(EVENT_TICK, tick)
-            self.on_event(EVENT_TICK + tick.vt_symbol, tick)
+        self.on_event(EVENT_TICK, tick)
+        self.on_event(EVENT_TICK + tick.vt_symbol, tick)
 
     def on_trade(self, trade: TradeData) -> None:
         """
@@ -283,37 +272,6 @@ class BaseGateway(ABC):
         Return default setting dict.
         """
         return self.default_setting
-
-    def validate_tick(self, tick: TickData) -> bool:
-        if (
-            tick.volume == 0
-            or tick.turnover == 0
-            or tick.last_price == 0
-        ):
-            return False
-
-        # TODO: 分品种控制交易时间
-        tick_time = tick.datetime.time()
-        if not (
-            (DAY_START <= tick_time <= DAY_END)
-            or (NIGHT_START <= tick_time <= NIGHT_END)
-        ):
-            return False
-
-        if abs(tick.datetime - tick.localtime) > timedelta(minutes=5):
-            print(f"Filter 3 {tick}")
-
-            return False
-
-        if tick.symbol in self.last_tick_time:
-            if tick.datetime < self.last_tick_time[tick.symbol]:
-                print(f"Filter 4 {tick}")
-
-                return False
-
-            self.last_tick_time[tick.symbol] = tick.datetime
-
-        return True
 
 
 class LocalOrderManager:

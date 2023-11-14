@@ -40,7 +40,7 @@ class DolphindbDatabase(BaseDatabase):
         self.session.connect(self.host, self.port, self.user, self.password)
 
         # 创建连接池（用于数据写入）
-        self.pool: ddb.DBConnectionPool = ddb.DBConnectionPool(self.host, self.port, 1, self.user, self.password)
+        self.pool: ddb.DBConnectionPool = ddb.DBConnectionPool(self.host, self.port, 20, self.user, self.password)
 
         # 初始化数据库和数据表
         if not self.session.existsDatabase(self.db_path):
@@ -55,212 +55,206 @@ class DolphindbDatabase(BaseDatabase):
         if not self.session.isClosed():
             self.session.close()
 
-    def save_bar_data(self, bars: list[BarData], stream: bool = False) -> bool:
+    def save_bar_data(self, bars: dict[str, list[BarData]], stream: bool = False) -> bool:
         """保存k线数据"""
-        # 读取主键参数
-        bar: BarData = bars[0]
-        symbol: str = bar.symbol
-        exchange: Exchange = bar.exchange
-        interval: Interval = bar.interval
-
-        # 转换为DatFrame写入数据库
-        data: list[dict] = []
-
-        for bar in bars:
-            dt: np.datetime64 = np.datetime64(convert_tz(bar.datetime))
-
-            d: dict = {
-                "symbol": symbol,
-                "exchange": exchange.value,
-                "datetime": dt,
-                "interval": interval.value,
-                "volume": float(bar.volume),
-                "turnover": float(bar.turnover),
-                "open_interest": float(bar.open_interest),
-                "open_price": float(bar.open_price),
-                "high_price": float(bar.high_price),
-                "low_price": float(bar.low_price),
-                "close_price": float(bar.close_price)
-            }
-
-            data.append(d)
-
-        df: pd.DataFrame = pd.DataFrame.from_records(data)
-
-        appender: ddb.PartitionedTableAppender = ddb.PartitionedTableAppender(self.db_path, "bar", "datetime", self.pool)
-        appender.append(df)
-
-        # 计算已有K线数据的汇总
+        bars_to_db: list[dict] = []
+        overview_to_db: list[dict] = []
         overview_table = self.session.loadTable(tableName="baroverview", dbPath=self.db_path)
-        overview: pd.DataFrame = (
-            overview_table.select('*')
-            .where(f'symbol="{symbol}"')
-            .where(f'exchange="{exchange.value}"')
-            .where(f'interval="{interval.value}"')
-            .toDF()
-        )
 
-        if overview.empty:
-            start: datetime = np.datetime64(bars[0].datetime)
-            end: datetime = np.datetime64(bars[-1].datetime)
-            count: int = len(bars)
-        elif stream:
-            start: datetime = overview["start"][0]
-            end: datetime = np.datetime64(bars[-1].datetime)
-            count: int = overview["count"][0] + len(bars)
-        else:
-            start: datetime = min(np.datetime64(bars[0].datetime), overview["start"][0])
-            end: datetime = max(np.datetime64(bars[-1].datetime), overview["end"][0])
+        dt_for_division: np.datetime64 = np.datetime64(datetime(2022, 1, 1))  # 该时间戳仅用于分区
 
-            bar_table = self.session.loadTable(tableName="bar", dbPath=self.db_path)
+        for vt_symbol, bars_ in bars.items():
+            for bar in bars_:
+                dt: np.datetime64 = np.datetime64(convert_tz(bar.datetime))
 
-            df_count: pd.DataFrame = (
-                bar_table.select('count(*)')
+                d: dict = {
+                    "symbol": bar.symbol,
+                    "exchange": bar.exchange.value,
+                    "datetime": dt,
+                    "interval": bar.interval.value,
+                    "volume": float(bar.volume),
+                    "turnover": float(bar.turnover),
+                    "open_interest": float(bar.open_interest),
+                    "open_price": float(bar.open_price),
+                    "high_price": float(bar.high_price),
+                    "low_price": float(bar.low_price),
+                    "close_price": float(bar.close_price)
+                }
+
+                bars_to_db.append(d)
+
+            # 读取主键参数
+            bar: BarData = bars_[0]
+            symbol: str = bar.symbol
+            exchange: Exchange = bar.exchange
+            interval: Interval = bar.interval
+
+            # 计算已有K线数据的汇总
+            overview: pd.DataFrame = (
+                overview_table.select('*')
                 .where(f'symbol="{symbol}"')
                 .where(f'exchange="{exchange.value}"')
                 .where(f'interval="{interval.value}"')
                 .toDF()
             )
 
-            count: int = df_count["count"][0]
+            if overview.empty:
+                start: datetime = np.datetime64(bars_[0].datetime)
+                end: datetime = np.datetime64(bars_[-1].datetime)
+                count: int = len(bars_)
+            elif stream:
+                start: datetime = overview["start"][0]
+                end: datetime = np.datetime64(bars_[-1].datetime)
+                count: int = overview["count"][0] + len(bars_)
+            else:
+                start: datetime = min(np.datetime64(bars_[0].datetime), overview["start"][0])
+                end: datetime = max(np.datetime64(bars_[-1].datetime), overview["end"][0])
 
-        # 更新K线汇总数据
-        data: list[dict] = []
+                bar_table = self.session.loadTable(tableName="bar", dbPath=self.db_path)
 
-        dt: np.datetime64 = np.datetime64(datetime(2022, 1, 1))    # 该时间戳仅用于分区
+                df_count: pd.DataFrame = (
+                    bar_table.select('count(*)')
+                    .where(f'symbol="{symbol}"')
+                    .where(f'exchange="{exchange.value}"')
+                    .where(f'interval="{interval.value}"')
+                    .toDF()
+                )
 
-        d: dict = {
-            "symbol": symbol,
-            "exchange": exchange.value,
-            "interval": interval.value,
-            "count": count,
-            "start": start,
-            "end": end,
-            "datetime": dt,
-        }
-        data.append(d)
+                count: int = df_count["count"][0]
 
-        df: pd.DataFrame = pd.DataFrame.from_records(data)
+            # 更新K线汇总数据
+            d: dict = {
+                "symbol": symbol,
+                "exchange": exchange.value,
+                "interval": interval.value,
+                "count": count,
+                "start": start,
+                "end": end,
+                "datetime": dt_for_division,
+            }
+            overview_to_db.append(d)
 
+        df: pd.DataFrame = pd.DataFrame.from_records(bars_to_db)
+        appender: ddb.PartitionedTableAppender = ddb.PartitionedTableAppender(self.db_path, "bar", "datetime", self.pool)
+        appender.append(df)
+
+        df: pd.DataFrame = pd.DataFrame.from_records(overview_to_db)
         appender: ddb.PartitionedTableAppender = ddb.PartitionedTableAppender(self.db_path, "baroverview", "datetime", self.pool)
         appender.append(df)
 
         return True
 
-    def save_tick_data(self, ticks: list[TickData], stream: bool = False) -> bool:
+    def save_tick_data(self, ticks: dict[str, list[TickData]], stream: bool = False) -> bool:
         """保存TICK数据"""
-        # 读取主键参数
-        tick: BarData = ticks[0]
-        symbol: str = tick.symbol
-        exchange: Exchange = tick.exchange
+        ticks_to_db: list[dict] = []
+        overview_to_db: list[dict] = []
 
-        data: list[dict] = []
-
-        for tick in ticks:
-            dt: np.datetime64 = np.datetime64(convert_tz(tick.datetime))
-
-            d: dict = {
-                "symbol": tick.symbol,
-                "exchange": tick.exchange.value,
-                "datetime": dt,
-
-                "name": tick.name,
-                "volume": float(tick.volume),
-                "turnover": float(tick.turnover),
-                "open_interest": float(tick.open_interest),
-                "last_price": float(tick.last_price),
-                "last_volume": float(tick.last_volume),
-                "limit_up": float(tick.limit_up),
-                "limit_down": float(tick.limit_down),
-
-                "open_price": float(tick.open_price),
-                "high_price": float(tick.high_price),
-                "low_price": float(tick.low_price),
-                "pre_close": float(tick.pre_close),
-
-                "bid_price_1": float(tick.bid_price_1),
-                "bid_price_2": float(tick.bid_price_2),
-                "bid_price_3": float(tick.bid_price_3),
-                "bid_price_4": float(tick.bid_price_4),
-                "bid_price_5": float(tick.bid_price_5),
-
-                "ask_price_1": float(tick.ask_price_1),
-                "ask_price_2": float(tick.ask_price_2),
-                "ask_price_3": float(tick.ask_price_3),
-                "ask_price_4": float(tick.ask_price_4),
-                "ask_price_5": float(tick.ask_price_5),
-
-                "bid_volume_1": float(tick.bid_volume_1),
-                "bid_volume_2": float(tick.bid_volume_2),
-                "bid_volume_3": float(tick.bid_volume_3),
-                "bid_volume_4": float(tick.bid_volume_4),
-                "bid_volume_5": float(tick.bid_volume_5),
-
-                "ask_volume_1": float(tick.ask_volume_1),
-                "ask_volume_2": float(tick.ask_volume_2),
-                "ask_volume_3": float(tick.ask_volume_3),
-                "ask_volume_4": float(tick.ask_volume_4),
-                "ask_volume_5": float(tick.ask_volume_5),
-
-                "localtime": np.datetime64(tick.localtime),
-            }
-
-            data.append(d)
-
-        df: pd.DataFrame = pd.DataFrame.from_records(data)
-
-        appender: ddb.PartitionedTableAppender = ddb.PartitionedTableAppender(self.db_path, "tick", "datetime", self.pool)
-        appender.append(df)
-
-        # 计算已有Tick数据的汇总
         overview_table = self.session.loadTable(tableName="tickoverview", dbPath=self.db_path)
-        overview: pd.DataFrame = (
-            overview_table.select('*')
-            .where(f'symbol="{symbol}"')
-            .where(f'exchange="{exchange.value}"')
-            .toDF()
-        )
+        dt_for_division: np.datetime64 = np.datetime64(datetime(2022, 1, 1))  # 该时间戳仅用于分区
 
-        if overview.empty:
-            start: datetime = np.datetime64(ticks[0].datetime)
-            end: datetime = np.datetime64(ticks[-1].datetime)
-            count: int = len(ticks)
-        elif stream:
-            start: datetime = overview["start"][0]
-            end: datetime = np.datetime64(ticks[-1].datetime)
-            count: int = overview["count"][0] + len(ticks)
-        else:
-            start: datetime = min(np.datetime64(ticks[0].datetime), overview["start"][0])
-            end: datetime = max(np.datetime64(ticks[-1].datetime), overview["end"][0])
+        for vt_symbol, ticks_ in ticks.items():
+            for tick in ticks_:
+                dt: np.datetime64 = np.datetime64(convert_tz(tick.datetime))
 
-            bar_table = self.session.loadTable(tableName="tick", dbPath=self.db_path)
+                d: dict = {
+                    "symbol": tick.symbol,
+                    "exchange": tick.exchange.value,
+                    "datetime": dt,
 
-            df_count: pd.DataFrame = (
-                bar_table.select('count(*)')
+                    "name": tick.name,
+                    "volume": float(tick.volume),
+                    "turnover": float(tick.turnover),
+                    "open_interest": float(tick.open_interest),
+                    "last_price": float(tick.last_price),
+                    "last_volume": float(tick.last_volume),
+                    "limit_up": float(tick.limit_up),
+                    "limit_down": float(tick.limit_down),
+
+                    "open_price": float(tick.open_price),
+                    "high_price": float(tick.high_price),
+                    "low_price": float(tick.low_price),
+                    "pre_close": float(tick.pre_close),
+
+                    "bid_price_1": float(tick.bid_price_1),
+                    "bid_price_2": float(tick.bid_price_2),
+                    "bid_price_3": float(tick.bid_price_3),
+                    "bid_price_4": float(tick.bid_price_4),
+                    "bid_price_5": float(tick.bid_price_5),
+
+                    "ask_price_1": float(tick.ask_price_1),
+                    "ask_price_2": float(tick.ask_price_2),
+                    "ask_price_3": float(tick.ask_price_3),
+                    "ask_price_4": float(tick.ask_price_4),
+                    "ask_price_5": float(tick.ask_price_5),
+
+                    "bid_volume_1": float(tick.bid_volume_1),
+                    "bid_volume_2": float(tick.bid_volume_2),
+                    "bid_volume_3": float(tick.bid_volume_3),
+                    "bid_volume_4": float(tick.bid_volume_4),
+                    "bid_volume_5": float(tick.bid_volume_5),
+
+                    "ask_volume_1": float(tick.ask_volume_1),
+                    "ask_volume_2": float(tick.ask_volume_2),
+                    "ask_volume_3": float(tick.ask_volume_3),
+                    "ask_volume_4": float(tick.ask_volume_4),
+                    "ask_volume_5": float(tick.ask_volume_5),
+
+                    "localtime": np.datetime64(tick.localtime),
+                }
+
+                ticks_to_db.append(d)
+
+            # 计算已有Tick数据的汇总
+            # 读取主键参数
+            tick: TickData = ticks_[0]
+            symbol: str = tick.symbol
+            exchange: Exchange = tick.exchange
+
+            overview: pd.DataFrame = (
+                overview_table.select('*')
                 .where(f'symbol="{symbol}"')
                 .where(f'exchange="{exchange.value}"')
                 .toDF()
             )
 
-            count: int = df_count["count"][0]
+            if overview.empty:
+                start: datetime = np.datetime64(ticks_[0].datetime)
+                end: datetime = np.datetime64(ticks_[-1].datetime)
+                count: int = len(ticks_)
+            elif stream:
+                start: datetime = overview["start"][0]
+                end: datetime = np.datetime64(ticks_[-1].datetime)
+                count: int = overview["count"][0] + len(ticks_)
+            else:
+                start: datetime = min(np.datetime64(ticks_[0].datetime), overview["start"][0])
+                end: datetime = max(np.datetime64(ticks_[-1].datetime), overview["end"][0])
 
-        # 更新Tick汇总数据
-        data: list[dict] = []
+                bar_table = self.session.loadTable(tableName="tick", dbPath=self.db_path)
 
-        dt: np.datetime64 = np.datetime64(datetime(2022, 1, 1))    # 该时间戳仅用于分区
+                df_count: pd.DataFrame = (
+                    bar_table.select('count(*)')
+                    .where(f'symbol="{symbol}"')
+                    .where(f'exchange="{exchange.value}"')
+                    .toDF()
+                )
 
-        d: dict = {
-            "symbol": symbol,
-            "exchange": exchange.value,
-            "count": count,
-            "start": start,
-            "end": end,
-            "datetime": dt,
-        }
-        data.append(d)
+                count: int = df_count["count"][0]
 
-        df: pd.DataFrame = pd.DataFrame.from_records(data)
+            d: dict = {
+                "symbol": symbol,
+                "exchange": exchange.value,
+                "count": count,
+                "start": start,
+                "end": end,
+                "datetime": dt_for_division,
+            }
+            overview_to_db.append(d)
 
+        df: pd.DataFrame = pd.DataFrame.from_records(ticks_to_db)
+        appender: ddb.PartitionedTableAppender = ddb.PartitionedTableAppender(self.db_path, "tick", "datetime", self.pool)
+        appender.append(df)
+
+        df: pd.DataFrame = pd.DataFrame.from_records(overview_to_db)
         appender: ddb.PartitionedTableAppender = ddb.PartitionedTableAppender(self.db_path, "tickoverview", "datetime", self.pool)
         appender.append(df)
 

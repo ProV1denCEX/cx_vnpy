@@ -212,8 +212,8 @@ class ManagerEngine(BaseEngine):
             data: List[BarData] = self.datafeed.query_bar_history(req, output)
 
         if data:
-            self.database.save_bar_data(data)
-            return (len(data))
+            self.database.save_bar_data({vt_symbol: data})
+            return len(data)
 
         return 0
 
@@ -237,7 +237,9 @@ class ManagerEngine(BaseEngine):
         data: List[TickData] = self.datafeed.query_tick_history(req, output)
 
         if data:
-            self.database.save_tick_data(data)
-            return (len(data))
+            vt_symbol: str = f"{symbol}.{exchange.value}"
+
+            self.database.save_bar_data({vt_symbol: data})
+            return len(data)
 
         return 0

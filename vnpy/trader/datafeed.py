@@ -43,7 +43,7 @@ def get_datafeed() -> BaseDatafeed:
 
     # Read datafeed related global setting
     datafeed_name: str = SETTINGS["datafeed.name"]
-    module_name: str = f"vnpy_{datafeed_name}"
+    module_name: str = f"vnpy.app.vnpy_{datafeed_name}"
 
     # Try to import datafeed module
     try:

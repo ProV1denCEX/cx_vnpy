@@ -133,7 +133,7 @@ symbol_contract_map: Dict[str, ContractData] = {}
 
 # trade start and end
 DAY_START = time(9, 0)
-DAY_END = time(15, 15)
+DAY_END = time(15, 15, 1)
 
 NIGHT_START = time(20, 45)
 NIGHT_END = time(23, 30)

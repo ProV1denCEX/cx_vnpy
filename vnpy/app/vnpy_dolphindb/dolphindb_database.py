@@ -15,13 +15,7 @@ from vnpy.trader.database import (
 )
 from vnpy.trader.setting import SETTINGS
 
-from .dolphindb_script import (
-    CREATE_DATABASE_SCRIPT,
-    CREATE_BAR_TABLE_SCRIPT,
-    CREATE_TICK_TABLE_SCRIPT,
-    CREATE_BAROVERVIEW_TABLE_SCRIPT,
-    CREATE_TICKOVERVIEW_TABLE_SCRIPT
-)
+from .dolphindb_script import SCRIPTS_FUNC
 
 
 class DolphindbDatabase(BaseDatabase):
@@ -35,6 +29,8 @@ class DolphindbDatabase(BaseDatabase):
         self.port: int = SETTINGS["database.port"]
         self.db_path: str = "dfs://" + SETTINGS["database.database"]
 
+        self.table_name = SETTINGS["database.table_name"]
+
         # 连接数据库
         self.session: ddb.session = ddb.session()
         self.session.connect(self.host, self.port, self.user, self.password)
@@ -44,11 +40,11 @@ class DolphindbDatabase(BaseDatabase):
 
         # 初始化数据库和数据表
         if not self.session.existsDatabase(self.db_path):
-            self.session.run(CREATE_DATABASE_SCRIPT)
-            self.session.run(CREATE_BAR_TABLE_SCRIPT)
-            self.session.run(CREATE_TICK_TABLE_SCRIPT)
-            self.session.run(CREATE_BAROVERVIEW_TABLE_SCRIPT)
-            self.session.run(CREATE_TICKOVERVIEW_TABLE_SCRIPT)
+            self.session.run(SCRIPTS_FUNC['database'](SETTINGS["database.database"]))
+
+        for k, v in self.table_name.items():
+            if not self.session.existsTable(self.db_path, v):
+                self.session.run(SCRIPTS_FUNC[k](SETTINGS["database.database"], v))
 
     def __del__(self) -> None:
         """析构函数"""
@@ -59,7 +55,7 @@ class DolphindbDatabase(BaseDatabase):
         """保存k线数据"""
         bars_to_db: list[dict] = []
         overview_to_db: list[dict] = []
-        overview_table = self.session.loadTable(tableName="baroverview", dbPath=self.db_path)
+        overview_table = self.session.loadTable(tableName=self.table_name["baroverview"], dbPath=self.db_path)
 
         dt_for_division: np.datetime64 = np.datetime64(datetime(2022, 1, 1))  # 该时间戳仅用于分区
 
@@ -135,11 +131,11 @@ class DolphindbDatabase(BaseDatabase):
             overview_to_db.append(d)
 
         df: pd.DataFrame = pd.DataFrame.from_records(bars_to_db)
-        appender: ddb.PartitionedTableAppender = ddb.PartitionedTableAppender(self.db_path, "bar", "datetime", self.pool)
+        appender: ddb.PartitionedTableAppender = ddb.PartitionedTableAppender(self.db_path, self.table_name["bar"], "datetime", self.pool)
         appender.append(df)
 
         df: pd.DataFrame = pd.DataFrame.from_records(overview_to_db)
-        appender: ddb.PartitionedTableAppender = ddb.PartitionedTableAppender(self.db_path, "baroverview", "datetime", self.pool)
+        appender: ddb.PartitionedTableAppender = ddb.PartitionedTableAppender(self.db_path, self.table_name["baroverview"], "datetime", self.pool)
         appender.append(df)
 
         return True
@@ -149,7 +145,7 @@ class DolphindbDatabase(BaseDatabase):
         ticks_to_db: list[dict] = []
         overview_to_db: list[dict] = []
 
-        overview_table = self.session.loadTable(tableName="tickoverview", dbPath=self.db_path)
+        overview_table = self.session.loadTable(tableName=self.table_name["tickoverview"], dbPath=self.db_path)
         dt_for_division: np.datetime64 = np.datetime64(datetime(2022, 1, 1))  # 该时间戳仅用于分区
 
         for vt_symbol, ticks_ in ticks.items():
@@ -229,7 +225,7 @@ class DolphindbDatabase(BaseDatabase):
                 start: datetime = min(np.datetime64(ticks_[0].datetime), overview["start"][0])
                 end: datetime = max(np.datetime64(ticks_[-1].datetime), overview["end"][0])
 
-                bar_table = self.session.loadTable(tableName="tick", dbPath=self.db_path)
+                bar_table = self.session.loadTable(tableName=self.table_name["tick"], dbPath=self.db_path)
 
                 df_count: pd.DataFrame = (
                     bar_table.select('count(*)')
@@ -251,11 +247,11 @@ class DolphindbDatabase(BaseDatabase):
             overview_to_db.append(d)
 
         df: pd.DataFrame = pd.DataFrame.from_records(ticks_to_db)
-        appender: ddb.PartitionedTableAppender = ddb.PartitionedTableAppender(self.db_path, "tick", "datetime", self.pool)
+        appender: ddb.PartitionedTableAppender = ddb.PartitionedTableAppender(self.db_path, self.table_name["tick"], "datetime", self.pool)
         appender.append(df)
 
         df: pd.DataFrame = pd.DataFrame.from_records(overview_to_db)
-        appender: ddb.PartitionedTableAppender = ddb.PartitionedTableAppender(self.db_path, "tickoverview", "datetime", self.pool)
+        appender: ddb.PartitionedTableAppender = ddb.PartitionedTableAppender(self.db_path, self.table_name["tickoverview"], "datetime", self.pool)
         appender.append(df)
 
         return True
@@ -276,7 +272,7 @@ class DolphindbDatabase(BaseDatabase):
         end = np.datetime64(end)
         end: str = str(end).replace("-", ".")
 
-        table: ddb.Table = self.session.loadTable(tableName="bar", dbPath=self.db_path)
+        table: ddb.Table = self.session.loadTable(tableName=self.table_name["bar"], dbPath=self.db_path)
 
         df: pd.DataFrame = (
             table.select('*')
@@ -332,7 +328,7 @@ class DolphindbDatabase(BaseDatabase):
         end: str = str(end).replace("-", ".")
 
         # 读取数据DataFrame
-        table: ddb.Table = self.session.loadTable(tableName="tick", dbPath=self.db_path)
+        table: ddb.Table = self.session.loadTable(tableName=self.table_name["tick"], dbPath=self.db_path)
 
         df: pd.DataFrame = (
             table.select('*')
@@ -404,7 +400,7 @@ class DolphindbDatabase(BaseDatabase):
     ) -> int:
         """删除K线数据"""
         # 加载数据表
-        table: ddb.Table = self.session.loadTable(tableName="bar", dbPath=self.db_path)
+        table: ddb.Table = self.session.loadTable(tableName=self.table_name["bar"], dbPath=self.db_path)
 
         # 统计数据量
         df: pd.DataFrame = (
@@ -426,7 +422,7 @@ class DolphindbDatabase(BaseDatabase):
         )
 
         # 删除K线汇总
-        table: ddb.Table = self.session.loadTable(tableName="baroverview", dbPath=self.db_path)
+        table: ddb.Table = self.session.loadTable(tableName=self.table_name["baroverview"], dbPath=self.db_path)
         (
             table.delete()
             .where(f'symbol="{symbol}"')
@@ -444,7 +440,7 @@ class DolphindbDatabase(BaseDatabase):
     ) -> int:
         """删除Tick数据"""
         # 加载数据表
-        table: ddb.Table = self.session.loadTable(tableName="tick", dbPath=self.db_path)
+        table: ddb.Table = self.session.loadTable(tableName=self.table_name["tick"], dbPath=self.db_path)
 
         # 统计数据量
         df: pd.DataFrame = (
@@ -464,7 +460,7 @@ class DolphindbDatabase(BaseDatabase):
         )
 
         # 删除Tick汇总
-        table: ddb.Table = self.session.loadTable(tableName="tickoverview", dbPath=self.db_path)
+        table: ddb.Table = self.session.loadTable(tableName=self.table_name["tickoverview"], dbPath=self.db_path)
         (
             table.delete()
             .where(f'symbol="{symbol}"')
@@ -476,7 +472,7 @@ class DolphindbDatabase(BaseDatabase):
 
     def get_bar_overview(self) -> list[BarOverview]:
         """"查询数据库中的K线汇总信息"""
-        table: ddb.Table = self.session.loadTable(tableName="baroverview", dbPath=self.db_path)
+        table: ddb.Table = self.session.loadTable(tableName=self.table_name["baroverview"], dbPath=self.db_path)
         df: pd.DataFrame = table.select('*').toDF()
 
         overviews: list[BarOverview] = []
@@ -496,7 +492,7 @@ class DolphindbDatabase(BaseDatabase):
 
     def get_tick_overview(self) -> list[TickOverview]:
         """"查询数据库中的K线汇总信息"""
-        table: ddb.Table = self.session.loadTable(tableName="tickoverview", dbPath=self.db_path)
+        table: ddb.Table = self.session.loadTable(tableName=self.table_name["tickoverview"], dbPath=self.db_path)
         df: pd.DataFrame = table.select('*').toDF()
 
         overviews: list[TickOverview] = []

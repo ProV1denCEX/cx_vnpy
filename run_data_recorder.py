@@ -116,5 +116,5 @@ def run_parent():
 
 
 if __name__ == "__main__":
-    run_child()
-    # run_parent()
+    # run_child()
+    run_parent()

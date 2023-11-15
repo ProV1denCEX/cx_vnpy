@@ -8,7 +8,6 @@ from tzlocal import get_localzone_name
 
 from .utility import load_json
 
-
 SETTINGS: Dict[str, Any] = {
     "font.family": "微软雅黑",
     "font.size": 12,
@@ -35,9 +34,14 @@ SETTINGS: Dict[str, Any] = {
     "database.host": "192.168.50.238",
     "database.port": 8848,
     "database.user": "admin",
-    "database.password": "zaq1@WSXcde3"
+    "database.password": "zaq1@WSXcde3",
+    "database.table_name": {
+        'tick': 'tick',
+        'bar': 'bar',
+        'tickoverview': 'tickoverview',
+        'baroverview': 'baroverview'
+    }
 }
-
 
 # Load global setting from json file.
 SETTING_FILENAME: str = "vt_setting.json"

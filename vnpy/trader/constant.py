@@ -148,7 +148,24 @@ class Interval(Enum):
     Interval of bar data.
     """
     MINUTE = "1m"
+    MINUTE_1 = "1m"
+    MINUTE_2 = "2m"
+    MINUTE_3 = "3m"
+    MINUTE_5 = "5m"
+    MINUTE_15 = "15m"
+
     HOUR = "1h"
     DAILY = "d"
     WEEKLY = "w"
     TICK = "tick"
+
+    @staticmethod
+    def from_window(interval, window: int):
+        if interval == Interval.MINUTE or Interval.MINUTE_1:
+            if window == 1: return Interval.MINUTE_1
+            if window == 2: return Interval.MINUTE_2
+            if window == 3: return Interval.MINUTE_3
+            if window == 5: return Interval.MINUTE_5
+            if window == 15: return Interval.MINUTE_15
+
+        raise NotImplementedError

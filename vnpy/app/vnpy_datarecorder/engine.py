@@ -45,6 +45,7 @@ class RecorderEngine(BaseEngine):
         self.tick_recordings: Dict[str, Dict] = {}
         self.bar_recordings: Dict[str, Dict] = {}
         self.bar_generators: Dict[str, BarGenerator] = {}
+        self.sub_bar_generators: Dict[str, List[BarGenerator]] = {}
 
         self.timer_count: int = 0
         self.timer_interval: int = 10
@@ -275,13 +276,32 @@ class RecorderEngine(BaseEngine):
         """"""
         self.bars[bar.vt_symbol].append(bar)
 
+    def on_1min_bar(self, bar):
+        self.record_bar(bar)
+
+        sub_bar_generators = self.sub_bar_generators.get(bar.vt_symbol)
+        for bg in sub_bar_generators:
+            bg.on_bar(bar)
+
     def get_bar_generator(self, vt_symbol: str) -> BarGenerator:
         """"""
         bg: Optional[BarGenerator] = self.bar_generators.get(vt_symbol, None)
 
         if not bg:
-            bg = BarGenerator(self.record_bar)
+            bg = BarGenerator(self.on_1min_bar)
             self.bar_generators[vt_symbol] = bg
+
+        sub_bar_generators = self.sub_bar_generators.get(vt_symbol, None)
+        if not sub_bar_generators:
+            sub_bar_generators = []
+            for i in [2, 3, 5, 15]:
+                bg = BarGenerator(None, window=i)
+                bg.on_bar = bg.update_bar
+                bg.on_window_bar = self.record_bar
+
+                sub_bar_generators.append(bg)
+
+            self.sub_bar_generators[vt_symbol] = sub_bar_generators
 
         return bg
 

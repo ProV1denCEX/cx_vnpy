@@ -5,7 +5,7 @@ General utility functions.
 import json
 import logging
 import sys
-from datetime import datetime
+from datetime import datetime, time
 from pathlib import Path
 from typing import Callable, Dict, Tuple, Union, Optional
 from decimal import Decimal
@@ -184,7 +184,8 @@ class BarGenerator:
         on_bar: Callable,
         window: int = 0,
         on_window_bar: Callable = None,
-        interval: Interval = Interval.MINUTE
+        interval: Interval = Interval.MINUTE,
+        daily_end: time = None
     ) -> None:
         """Constructor"""
         self.bar: BarData = None
@@ -194,12 +195,17 @@ class BarGenerator:
         self.interval_count: int = 0
 
         self.hour_bar: BarData = None
+        self.daily_bar: BarData = None
 
         self.window: int = window
         self.window_bar: BarData = None
         self.on_window_bar: Callable = on_window_bar
 
         self.last_tick: TickData = None
+
+        self.daily_end: time = daily_end
+        if self.interval == Interval.DAILY and not self.daily_end:
+            raise RuntimeError("合成日K线必须传入每日收盘时间")
 
     def update_tick(self, tick: TickData) -> None:
         """
@@ -269,18 +275,20 @@ class BarGenerator:
         """
         if self.interval == Interval.MINUTE:
             self.update_bar_minute_window(bar)
-        else:
+        elif self.interval == Interval.HOUR:
             self.update_bar_hour_window(bar)
+        else:
+            self.update_bar_daily_window(bar)
 
     def update_bar_minute_window(self, bar: BarData) -> None:
         """"""
         # If not inited, create window bar object
         if not self.window_bar:
-            dt: datetime = bar.datetime.replace(second=0, microsecond=0)
             self.window_bar = BarData(
                 symbol=bar.symbol,
                 exchange=bar.exchange,
-                datetime=dt,
+                datetime=bar.datetime.replace(second=0, microsecond=0),
+                interval=Interval.from_window(Interval.MINUTE, self.window),
                 gateway_name=bar.gateway_name,
                 open_price=bar.open_price,
                 high_price=bar.high_price,
@@ -305,6 +313,9 @@ class BarGenerator:
 
         # Check if window bar completed
         if not (bar.datetime.minute + 1) % self.window:
+            # 让bar的时间戳为bar completed 的时间，和天软、wind 相匹配；当bar 时间和bar open 一致时，则是与oq一致
+            # self.window_bar.datetime = bar.datetime.replace(second=0, microsecond=0)
+
             self.on_window_bar(self.window_bar)
             self.window_bar = None
 
@@ -422,6 +433,48 @@ class BarGenerator:
                 self.interval_count = 0
                 self.on_window_bar(self.window_bar)
                 self.window_bar = None
+
+    def update_bar_daily_window(self, bar: BarData) -> None:
+        """"""
+        # If not inited, create daily bar object
+        if not self.daily_bar:
+            self.daily_bar = BarData(
+                symbol=bar.symbol,
+                exchange=bar.exchange,
+                datetime=bar.datetime,
+                gateway_name=bar.gateway_name,
+                open_price=bar.open_price,
+                high_price=bar.high_price,
+                low_price=bar.low_price
+            )
+        # Otherwise, update high/low price into daily bar
+        else:
+            self.daily_bar.high_price = max(
+                self.daily_bar.high_price,
+                bar.high_price
+            )
+            self.daily_bar.low_price = min(
+                self.daily_bar.low_price,
+                bar.low_price
+            )
+
+        # Update close price/volume/turnover into daily bar
+        self.daily_bar.close_price = bar.close_price
+        self.daily_bar.volume += bar.volume
+        self.daily_bar.turnover += bar.turnover
+        self.daily_bar.open_interest = bar.open_interest
+
+        # Check if daily bar completed
+        if bar.datetime.time() == self.daily_end:
+            self.daily_bar.datetime = bar.datetime.replace(
+                hour=0,
+                minute=0,
+                second=0,
+                microsecond=0
+            )
+            self.on_window_bar(self.daily_bar)
+
+            self.daily_bar = None
 
     def generate(self) -> Optional[BarData]:
         """

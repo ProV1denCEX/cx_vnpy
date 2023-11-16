@@ -349,7 +349,7 @@ class CtpMdApi(MdApi):
             return
 
         # 过滤与本机时间差距较大的tick，发生频率一般
-        if abs(dt - local_dt) > timedelta(minutes=5):
+        if abs(dt - local_dt) > timedelta(minutes=1):
             return
 
         # 过滤较老的tick，发生频率较高

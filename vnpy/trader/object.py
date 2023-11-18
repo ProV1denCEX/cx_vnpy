@@ -235,9 +235,13 @@ class ContractData(BaseData):
     symbol: str
     exchange: Exchange
     name: str
+    product_id: str
     product: Product
     size: float
     pricetick: float
+
+    list_date: datetime
+    expire_date: datetime
 
     min_volume: float = 1           # minimum trading volume of the contract
     stop_supported: bool = False    # whether server supports stop order

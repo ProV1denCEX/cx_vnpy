@@ -4,8 +4,8 @@ import numpy as np
 import pandas as pd
 import dolphindb as ddb
 
-from vnpy.trader.constant import Exchange, Interval
-from vnpy.trader.object import BarData, TickData
+from vnpy.trader.constant import Exchange, Interval, Product
+from vnpy.trader.object import BarData, TickData, ContractData
 from vnpy.trader.database import (
     BaseDatabase,
     BarOverview,
@@ -44,12 +44,67 @@ class DolphindbDatabase(BaseDatabase):
 
         for k, v in self.table_name.items():
             if not self.session.existsTable(self.db_path, v):
-                self.session.run(SCRIPTS_FUNC[k](SETTINGS["database.database"], v))
+                if k in SCRIPTS_FUNC:
+                    self.session.run(SCRIPTS_FUNC[k](SETTINGS["database.database"], v))
 
     def __del__(self) -> None:
         """析构函数"""
         if not self.session.isClosed():
             self.session.close()
+
+    def save_contract_data(self, contracts: list[ContractData]) -> bool:
+        futures_to_db = []
+        options_to_db = []
+
+        dt = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        for contract in contracts:
+            if contract.product == Product.FUTURES:
+                d: dict = {
+                    "symbol": contract.symbol,
+                    "exchange": contract.exchange.value,
+                    "datetime": dt,
+                    "name": contract.name,
+                    "product_id": contract.product_id,
+                    "size": contract.size,
+                    "pricetick": contract.pricetick,
+                    "list_date": contract.list_date,
+                    "expire_date": contract.expire_date,
+                    "min_volume": contract.min_volume,
+                }
+
+                futures_to_db.append(d)
+
+            elif contract.product == Product.OPTION:
+                d: dict = {
+                    "symbol": contract.symbol,
+                    "exchange": contract.exchange.value,
+                    "datetime": dt,
+                    "name": contract.name,
+                    "product_id": contract.product_id,
+                    "size": contract.size,
+                    "pricetick": contract.pricetick,
+                    "list_date": contract.option_listed,
+                    "expire_date": contract.option_expiry,
+                    "min_volume": contract.min_volume,
+
+                    "option_strike": contract.option_strike,
+                    "option_underlying": contract.option_underlying,
+                    "option_type": contract.option_type.value,
+                    "option_portfolio": contract.option_portfolio,
+                    "option_index": contract.option_index,
+                }
+
+                options_to_db.append(d)
+
+        df: pd.DataFrame = pd.DataFrame.from_records(futures_to_db)
+        appender: ddb.PartitionedTableAppender = ddb.PartitionedTableAppender(self.db_path, self.table_name["contract_futures"], "expire_date", self.pool)
+        appender.append(df)
+
+        df: pd.DataFrame = pd.DataFrame.from_records(options_to_db)
+        appender: ddb.PartitionedTableAppender = ddb.PartitionedTableAppender(self.db_path, self.table_name["contract_options"], "datetime", self.pool)
+        appender.append(df)
+
+        return True
 
     def save_bar_data(self, bars: dict[str, list[BarData]], stream: bool = False) -> bool:
         """保存k线数据"""

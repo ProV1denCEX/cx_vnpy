@@ -6,6 +6,7 @@ from logging import INFO
 
 from vnpy.event import EventEngine
 from vnpy.trader.constant import Product
+from vnpy.trader.database import get_database
 from vnpy.trader.setting import SETTINGS
 from vnpy.trader.engine import MainEngine
 
@@ -17,6 +18,17 @@ from vnpy.trader.utility import load_json
 SETTINGS["log.active"] = True
 SETTINGS["log.level"] = INFO
 SETTINGS["log.console"] = True
+
+
+CTP_SETTING = {
+    "用户名": "057114",
+    "密码": "zaq1@WSXcde3",
+    "经纪商代码": "9999",
+    "交易服务器": "tcp://180.168.146.187:10202",
+    "行情服务器": "tcp://180.168.212.230:41214",
+    "产品名称": "simnow_client_test",
+    "授权编码": "0000000000000000"
+}
 
 
 # Chinese futures market trading period (day/night)
@@ -60,7 +72,7 @@ def run_child():
 
     ctp_setting = load_json(f"connect_{gateway.gateway_name.lower()}.json")
 
-    main_engine.connect(ctp_setting, "CTP")
+    main_engine.connect(CTP_SETTING, "CTP")
     main_engine.write_log("连接CTP接口")
 
     sleep(10)
@@ -77,6 +89,9 @@ def run_child():
             break
 
         sleep(5)
+
+    db = get_database()
+    db.save_contract_data(contracts)
 
     while True:
         sleep(10)

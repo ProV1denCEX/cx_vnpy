@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from importlib import import_module
 
 from .constant import Interval, Exchange
-from .object import BarData, TickData
+from .object import BarData, TickData, ContractData
 from .setting import SETTINGS
 from .utility import ZoneInfo
 
@@ -53,6 +53,12 @@ class BaseDatabase(ABC):
     """
     Abstract database class for connecting to different database.
     """
+    @abstractmethod
+    def save_contract_data(self, contracts: list[ContractData]) -> bool:
+        """
+        Save contract data into database.
+        """
+        pass
 
     @abstractmethod
     def save_bar_data(self, bars: dict[str, list[BarData]], stream: bool = False) -> bool:

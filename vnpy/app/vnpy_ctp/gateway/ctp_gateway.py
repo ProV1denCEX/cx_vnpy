@@ -367,8 +367,8 @@ class CtpMdApi(MdApi):
             turnover=turnover,
             open_interest=data["OpenInterest"],
             last_price=last_price,
-            limit_up=data["UpperLimitPrice"],
-            limit_down=data["LowerLimitPrice"],
+            limit_up=adjust_price(data["UpperLimitPrice"]),
+            limit_down=adjust_price(data["LowerLimitPrice"]),
             open_price=adjust_price(data["OpenPrice"]),
             high_price=adjust_price(data["HighestPrice"]),
             low_price=adjust_price(data["LowestPrice"]),
@@ -648,9 +648,13 @@ class CtpTdApi(TdApi):
                 symbol=data["InstrumentID"],
                 exchange=EXCHANGE_CTP2VT[data["ExchangeID"]],
                 name=data["InstrumentName"],
+                product_id=data["ProductID"],
                 product=product,
                 size=data["VolumeMultiple"],
                 pricetick=data["PriceTick"],
+                list_date=datetime.strptime(data["OpenDate"], "%Y%m%d"),
+                expire_date=datetime.strptime(data["ExpireDate"], "%Y%m%d"),
+
                 gateway_name=self.gateway_name
             )
 
@@ -666,8 +670,8 @@ class CtpTdApi(TdApi):
                 contract.option_type = OPTIONTYPE_CTP2VT.get(data["OptionsType"], None)
                 contract.option_strike = data["StrikePrice"]
                 contract.option_index = str(data["StrikePrice"])
-                contract.option_listed = datetime.strptime(data["OpenDate"], "%Y%m%d")
-                contract.option_expiry = datetime.strptime(data["ExpireDate"], "%Y%m%d")
+                contract.option_listed = contract.list_date
+                contract.option_expiry = contract.expire_date
 
             self.gateway.on_contract(contract)
 

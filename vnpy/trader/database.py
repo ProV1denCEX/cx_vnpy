@@ -77,9 +77,10 @@ class BaseDatabase(ABC):
     @abstractmethod
     def load_contract_data(
             self,
-            product: Product,
-            start: datetime,
-            end: datetime
+            symbol: str = None,
+            product: Product = Product.FUTURES,
+            start: datetime = None,
+            end: datetime = None
     ) -> list[ContractData]:
         """
         Load contract data from database.

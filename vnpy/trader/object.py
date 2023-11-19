@@ -103,6 +103,7 @@ class BarData(BaseData):
     def __post_init__(self) -> None:
         """"""
         self.vt_symbol: str = f"{self.symbol}.{self.exchange.value}"
+        self.amount = self.turnover
 
 
 @dataclass

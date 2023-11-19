@@ -1,12 +1,14 @@
 from datetime import datetime, timedelta
 from typing import Dict, List, Set, Optional, Callable
 
+import pandas as pd
 from pyTSL import Client, DoubleToDatetime
 
+from vnpy.trader.database import get_database
 from vnpy.trader.setting import SETTINGS
-from vnpy.trader.constant import Exchange, Interval
+from vnpy.trader.constant import Exchange, Interval, Product
 from vnpy.trader.object import BarData, TickData, HistoryRequest
-from vnpy.trader.utility import extract_vt_symbol, ZoneInfo
+from vnpy.trader.utility import ZoneInfo, generate_ticker
 from vnpy.trader.datafeed import BaseDatafeed
 
 
@@ -40,6 +42,8 @@ class TinysoftDatafeed(BaseDatafeed):
         self.client: Client = None
         self.inited: bool = False
 
+        self.database = get_database()
+
     def init(self, output: Callable = print) -> bool:
         """初始化"""
         if self.inited:
@@ -67,7 +71,17 @@ class TinysoftDatafeed(BaseDatafeed):
             if not n:
                 return []
 
-        symbol, exchange = extract_vt_symbol(req.vt_symbol)
+        symbol, exchange = req.symbol, req.exchange
+
+        contracts = self.database.load_contract_data(symbol=req.symbol, product=Product.FUTURES)
+        if contracts:
+            contract = contracts[0]
+
+        else:
+            raise ValueError("Contract data not found in db")
+
+        ticker = generate_ticker(symbol, req.end)
+
         tsl_exchange: str = EXCHANGE_MAP.get(exchange, "")
         tsl_interval: str = INTERVAL_MAP[req.interval]
 
@@ -80,38 +94,41 @@ class TinysoftDatafeed(BaseDatafeed):
             f"setsysparam(pn_cycle(),{tsl_interval}());"
             "return select * from markettable "
             f"datekey {start_str}T to {end_str}T "
-            f"of '{tsl_exchange}{symbol}' end;"
+            f"of '{tsl_exchange}{ticker}' end;"
         )
         result = self.client.exec(cmd)
 
         if not result.error():
-            data = result.value()
-            shift: timedelta = SHIFT_MAP.get(req.interval, None)
+            data = pd.DataFrame(result.value())
+            if not data.empty:
+                data['dt'] = data['date'].apply(DoubleToDatetime)
 
-            for d in data:
-                dt: datetime = DoubleToDatetime(d["date"])
+                shift: timedelta = SHIFT_MAP.get(req.interval, None)
                 if shift:
-                    dt -= shift
+                    data['dt'] -= shift
 
-                bar: BarData = BarData(
-                    symbol=symbol,
-                    exchange=exchange,
-                    datetime=dt.replace(tzinfo=CHINA_TZ),
-                    interval=req.interval,
-                    open_price=d["open"],
-                    high_price=d["high"],
-                    low_price=d["low"],
-                    close_price=d["close"],
-                    volume=d["vol"],
-                    turnover=d["amount"],
-                    gateway_name="TSL"
-                )
+                data = self.fix_amount(data, multiplier=contract.size)
 
-                # 期货则获取持仓量字段
-                if not tsl_exchange:
-                    bar.open_interest = d["sectional_cjbs"]
+                for _, d in data.iterrows():
+                    bar: BarData = BarData(
+                        symbol=d["StockName"],
+                        exchange=exchange,
+                        datetime=d["dt"].replace(tzinfo=CHINA_TZ),
+                        interval=req.interval,
+                        open_price=d["open"],
+                        high_price=d["high"],
+                        low_price=d["low"],
+                        close_price=d["close"],
+                        volume=d["vol"],
+                        turnover=d["amount"],
+                        gateway_name="TSL"
+                    )
 
-                bars.append(bar)
+                    # 期货则获取持仓量字段
+                    if not tsl_exchange:
+                        bar.open_interest = d["sectional_cjbs"]
+
+                    bars.append(bar)
 
         return bars
 
@@ -122,7 +139,7 @@ class TinysoftDatafeed(BaseDatafeed):
             if not n:
                 return []
 
-        symbol, exchange = extract_vt_symbol(req.vt_symbol)
+        symbol, exchange = req.symbol, req.exchange
         tsl_exchange: str = EXCHANGE_MAP.get(exchange, "")
 
         ticks: List[TickData] = []
@@ -197,3 +214,54 @@ class TinysoftDatafeed(BaseDatafeed):
             dt += timedelta(days=1)
 
         return ticks
+
+    @staticmethod
+    def fix_amount(data, **kwargs):
+        thres_lower = kwargs.get('thres_lower', 0.8)
+        thres_upper = kwargs.get('thres_lower', 1.2)
+
+        col_price = kwargs.get('col_price', 'close')
+        col_volume = kwargs.get('col_volume', 'vol')
+        col_amount = kwargs.get('col_amount', 'amount')
+
+        multiplier = kwargs.get('multiplier', 1)
+
+        before = data.copy()
+
+        after = before.copy()
+
+        def fix_multiplier(data_):
+            return data_.loc[:, col_amount] * multiplier
+
+        def fix_10000(data_):
+            return data_.loc[:, col_amount] * 10000
+
+        def fix_multiplier_and_10000(data_):
+            return data_.loc[:, col_amount] * 10000 * multiplier
+
+        def fix_replace_w_pvm(data_):
+            return data_.loc[:, col_price] * data_.loc[:, col_volume] * multiplier
+
+        to_fix = before.copy()
+        bias = to_fix.loc[:, col_amount] / (
+                    to_fix.loc[:, col_price] * to_fix.loc[:, col_volume] * multiplier)
+        loc = (bias > thres_lower) & (bias < thres_upper)
+        to_fix = to_fix[~loc]
+
+        fixed_lines = 0
+        for func in [fix_multiplier, fix_10000, fix_multiplier_and_10000, fix_replace_w_pvm]:
+            if to_fix.empty:
+                break
+
+            fix = func(to_fix)
+            bias = fix / (to_fix.loc[:, col_price] * to_fix.loc[:, col_volume] * multiplier)
+
+            loc = (bias > thres_lower) & (bias < thres_upper)
+            fixed = fix[loc]
+            to_fix = to_fix[~loc]
+
+            fixed_lines += len(fixed)
+
+            after.loc[fixed.index, col_amount] = fixed
+
+        return after

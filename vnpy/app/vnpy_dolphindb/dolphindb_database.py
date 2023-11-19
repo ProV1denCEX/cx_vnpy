@@ -313,17 +313,11 @@ class DolphindbDatabase(BaseDatabase):
 
     def load_contract_data(
             self,
-            product: Product,
-            start: datetime,
-            end: datetime
+            symbol: str = None,
+            product: Product = Product.FUTURES,
+            start: datetime = None,
+            end: datetime = None
     ) -> list[ContractData]:
-
-        # 转换时间格式
-        start = np.datetime64(start)
-        start: str = str(start).replace("-", ".")
-
-        end = np.datetime64(end)
-        end: str = str(end).replace("-", ".")
 
         contracts = []
         if product == Product.FUTURES:
@@ -331,18 +325,27 @@ class DolphindbDatabase(BaseDatabase):
 
             table: ddb.Table = self.session.loadTable(tableName=table_name, dbPath=self.db_path)
 
-            df: pd.DataFrame = (
-                table.select('*')
-                .where(f'list_date<={start}')
-                .where(f'expire_date>={end}')
-                .toDF()
-            )
+            query = table.select('*')
+            if symbol:
+                query = query.where(f'symbol="{symbol}"')
+
+            if start:
+                start = np.datetime64(start)
+                start: str = str(start).replace("-", ".")
+                query = query.where(f'list_date<={start}')
+
+            if end:
+                end = np.datetime64(end)
+                end: str = str(end).replace("-", ".")
+                query = query.where(f'expire_date>={end}')
+
+            df: pd.DataFrame = query.toDF()
 
             if df.empty:
                 return []
 
             for tp in df.itertuples():
-                bar = ContractData(
+                contract = ContractData(
                     symbol=tp.symbol,
                     exchange=Exchange[tp.exchange],
                     name=tp.name,
@@ -356,25 +359,34 @@ class DolphindbDatabase(BaseDatabase):
 
                     gateway_name="DB"
                 )
-                contracts.append(bar)
+                contracts.append(contract)
 
         elif product == Product.OPTION:
             table_name = self.table_name["contract_options"]
 
             table: ddb.Table = self.session.loadTable(tableName=table_name, dbPath=self.db_path)
 
-            df: pd.DataFrame = (
-                table.select('*')
-                .where(f'datetime>={start}')
-                .where(f'datetime<={end}')
-                .toDF()
-            )
+            query = table.select('*')
+            if symbol:
+                query = query.where(f'symbol="{symbol}"')
+
+            if start:
+                start = np.datetime64(start)
+                start: str = str(start).replace("-", ".")
+                query = query.where(f'datetime>={start}')
+
+            if end:
+                end = np.datetime64(end)
+                end: str = str(end).replace("-", ".")
+                query = query.where(f'datetime<={end}')
+
+            df: pd.DataFrame = query.toDF()
 
             if df.empty:
                 return []
 
             for tp in df.itertuples():
-                bar = ContractData(
+                contract = ContractData(
                     symbol=tp.symbol,
                     exchange=Exchange[tp.exchange],
                     name=tp.name,
@@ -397,7 +409,7 @@ class DolphindbDatabase(BaseDatabase):
 
                     gateway_name="DB"
                 )
-                contracts.append(bar)
+                contracts.append(contract)
 
         else:
             raise NotImplementedError

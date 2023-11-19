@@ -41,6 +41,21 @@ def generate_vt_symbol(symbol: str, exchange: Exchange) -> str:
     return f"{symbol}.{exchange.value}"
 
 
+def generate_ticker(symbol: str, date: datetime) -> str:
+    """
+    Generate ticker that has 4 digit num
+
+    """
+    contract = ''.join(i for i in symbol if i.isalpha())
+    digits = ''.join(i for i in symbol if i.isnumeric())
+
+    if len(digits) == 3:
+        year_10 = date.year // 10 % 10
+        digits = str(year_10) + digits
+
+    return contract.upper() + digits
+
+
 def _get_trader_dir(temp_name: str) -> Tuple[Path, Path]:
     """
     Get path where trader is running in.

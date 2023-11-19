@@ -73,6 +73,16 @@ class OptionType(Enum):
     CALL = "看涨期权"
     PUT = "看跌期权"
 
+    @staticmethod
+    def from_str(type: str):
+        if type.upper() in {"看涨期权", "CALL", "C"}:
+            return OptionType.CALL
+
+        if type.upper() in {"看跌期权", "PUT", "P"}:
+            return OptionType.PUT
+
+        raise ValueError(f"Invalid OptionType {type}")
+
 
 class Exchange(Enum):
     """

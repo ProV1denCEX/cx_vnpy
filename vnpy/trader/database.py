@@ -5,7 +5,7 @@ from typing import List
 from dataclasses import dataclass
 from importlib import import_module
 
-from .constant import Interval, Exchange
+from .constant import Interval, Exchange, Product
 from .object import BarData, TickData, ContractData
 from .setting import SETTINGS
 from .utility import ZoneInfo
@@ -71,6 +71,18 @@ class BaseDatabase(ABC):
     def save_tick_data(self, ticks: dict[str, list[TickData]], stream: bool = False) -> bool:
         """
         Save tick data into database.
+        """
+        pass
+
+    @abstractmethod
+    def load_contract_data(
+            self,
+            product: Product,
+            start: datetime,
+            end: datetime
+    ) -> list[ContractData]:
+        """
+        Load contract data from database.
         """
         pass
 

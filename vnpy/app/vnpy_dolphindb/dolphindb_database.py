@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 import dolphindb as ddb
 
-from vnpy.trader.constant import Exchange, Interval, Product
+from vnpy.trader.constant import Exchange, Interval, Product, OptionType
 from vnpy.trader.object import BarData, TickData, ContractData
 from vnpy.trader.database import (
     BaseDatabase,
@@ -310,6 +310,99 @@ class DolphindbDatabase(BaseDatabase):
         appender.append(df)
 
         return True
+
+    def load_contract_data(
+            self,
+            product: Product,
+            start: datetime,
+            end: datetime
+    ) -> list[ContractData]:
+
+        # 转换时间格式
+        start = np.datetime64(start)
+        start: str = str(start).replace("-", ".")
+
+        end = np.datetime64(end)
+        end: str = str(end).replace("-", ".")
+
+        contracts = []
+        if product == Product.FUTURES:
+            table_name = self.table_name["contract_futures"]
+
+            table: ddb.Table = self.session.loadTable(tableName=table_name, dbPath=self.db_path)
+
+            df: pd.DataFrame = (
+                table.select('*')
+                .where(f'list_date<={start}')
+                .where(f'expire_date>={end}')
+                .toDF()
+            )
+
+            if df.empty:
+                return []
+
+            for tp in df.itertuples():
+                bar = ContractData(
+                    symbol=tp.symbol,
+                    exchange=Exchange[tp.exchange],
+                    name=tp.name,
+                    product=product,
+                    product_id=tp.product_id,
+                    size=tp.size,
+                    pricetick=tp.pricetick,
+                    list_date=tp.list_date.to_pydatetime(),
+                    expire_date=tp.expire_date.to_pydatetime(),
+                    min_volume=tp.min_volume,
+
+                    gateway_name="DB"
+                )
+                contracts.append(bar)
+
+        elif product == Product.OPTION:
+            table_name = self.table_name["contract_options"]
+
+            table: ddb.Table = self.session.loadTable(tableName=table_name, dbPath=self.db_path)
+
+            df: pd.DataFrame = (
+                table.select('*')
+                .where(f'datetime>={start}')
+                .where(f'datetime<={end}')
+                .toDF()
+            )
+
+            if df.empty:
+                return []
+
+            for tp in df.itertuples():
+                bar = ContractData(
+                    symbol=tp.symbol,
+                    exchange=Exchange[tp.exchange],
+                    name=tp.name,
+                    product=product,
+                    product_id=tp.product_id,
+                    size=tp.size,
+                    pricetick=tp.pricetick,
+                    list_date=tp.list_date.to_pydatetime(),
+                    expire_date=tp.expire_date.to_pydatetime(),
+                    min_volume=tp.min_volume,
+
+                    option_strike=tp.option_strike,
+                    option_underlying=tp.option_underlying,
+                    option_type=OptionType.from_str(tp.option_type),
+                    option_portfolio=tp.option_portfolio,
+                    option_index=tp.option_index,
+
+                    option_listed=tp.list_date.to_pydatetime(),
+                    option_expiry=tp.expire_date.to_pydatetime(),
+
+                    gateway_name="DB"
+                )
+                contracts.append(bar)
+
+        else:
+            raise NotImplementedError
+
+        return contracts
 
     def load_bar_data(
         self,

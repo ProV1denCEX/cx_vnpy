@@ -37,7 +37,9 @@ def main():
     # main_engine.add_gateway(NhFuturesGateway)
     # main_engine.add_gateway(NhStockGateway)
 
-    main_engine.add_app(DataManagerApp)
+    data_manager = main_engine.add_app(DataManagerApp)
+
+    data_manager
 
     main_window = MainWindow(main_engine, event_engine)
     main_window.showMaximized()

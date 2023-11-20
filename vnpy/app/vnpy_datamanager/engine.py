@@ -3,11 +3,11 @@ from datetime import datetime
 from typing import List, Optional, Callable
 
 from vnpy.trader.engine import BaseEngine, MainEngine, EventEngine
-from vnpy.trader.constant import Interval, Exchange
+from vnpy.trader.constant import Interval, Exchange, Product
 from vnpy.trader.object import BarData, TickData, ContractData, HistoryRequest
 from vnpy.trader.database import BaseDatabase, get_database, BarOverview, DB_TZ
 from vnpy.trader.datafeed import BaseDatafeed, get_datafeed
-from vnpy.trader.utility import ZoneInfo
+from vnpy.trader.utility import ZoneInfo, BarGenerator, generate_vt_symbol
 
 APP_NAME = "DataManager"
 
@@ -146,6 +146,25 @@ class ManagerEngine(BaseEngine):
         """"""
         return self.database.get_bar_overview()
 
+    def load_contract_data(
+            self,
+            symbol: str = None,
+            product: Product = Product.FUTURES,
+            start: datetime = None,
+            end: datetime = None
+    ) -> list[ContractData]:
+        """
+        Load contract data from database.
+        """
+        contracts = self.database.load_contract_data(
+            symbol,
+            product,
+            start,
+            end
+        )
+
+        return contracts
+
     def load_bar_data(
         self,
         symbol: str,
@@ -164,6 +183,16 @@ class ManagerEngine(BaseEngine):
         )
 
         return bars
+
+    def load_tick_data(
+            self,
+            symbol: str,
+            exchange: Exchange,
+            start: datetime,
+            end: datetime
+    ):
+        ticks = self.database.load_tick_data(symbol, exchange, start, end)
+        return ticks
 
     def delete_bar_data(
         self,
@@ -184,6 +213,7 @@ class ManagerEngine(BaseEngine):
         self,
         symbol: str,
         exchange: Exchange,
+        product: Product,
         interval: str,
         start: datetime,
         output: Callable
@@ -194,6 +224,7 @@ class ManagerEngine(BaseEngine):
         req: HistoryRequest = HistoryRequest(
             symbol=symbol,
             exchange=exchange,
+            product=product,
             interval=Interval(interval),
             start=start,
             end=datetime.now(DB_TZ)
@@ -239,7 +270,48 @@ class ManagerEngine(BaseEngine):
         if data:
             vt_symbol: str = f"{symbol}.{exchange.value}"
 
-            self.database.save_bar_data({vt_symbol: data})
+            self.database.save_tick_data({vt_symbol: data})
             return len(data)
+
+        return 0
+
+    def rebuild_bar_data(
+            self,
+            symbol: str,
+            exchange: Exchange,
+            interval: str,
+            start: datetime,
+            end: datetime = datetime.now(DB_TZ)
+    ):
+        bars_to_save = []
+
+        def record_bar(bar):
+            bars_to_save.append(bar)
+
+        if interval == "1m":
+            ticks = self.load_tick_data(symbol, exchange, start, end)
+
+            bg = BarGenerator(record_bar)
+            for tick in ticks:
+                bg.update_tick(tick)
+
+        else:
+            bars = self.load_bar_data(symbol, exchange, Interval.MINUTE, start, end)
+
+            if interval == "recorder":
+                windows = [2, 3, 5, 15]
+
+            else:
+                windows = [Interval.to_window(interval)]
+
+            bgs = [BarGenerator(None, window=i, on_window_bar=record_bar) for i in windows]
+            for bar in bars:
+                for bg in bgs:
+                    bg.update_bar(bar)
+
+        if bars_to_save:
+            vt_symbol = generate_vt_symbol(symbol, exchange)
+            self.database.save_bar_data({vt_symbol: bars_to_save})
+            return len(bars_to_save)
 
         return 0

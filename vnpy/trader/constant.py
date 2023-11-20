@@ -179,3 +179,14 @@ class Interval(Enum):
             if window == 15: return Interval.MINUTE_15
 
         raise NotImplementedError
+
+    @staticmethod
+    def to_window(interval) -> int:
+        if interval == Interval.MINUTE_1: return 1
+        if interval == Interval.MINUTE_2: return 2
+        if interval == Interval.MINUTE_3: return 3
+        if interval == Interval.MINUTE_5: return 5
+        if interval == Interval.MINUTE_15: return 15
+
+        raise NotImplementedError
+

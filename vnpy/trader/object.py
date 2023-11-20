@@ -382,6 +382,7 @@ class HistoryRequest:
     start: datetime
     end: datetime = None
     interval: Interval = None
+    product: Product = None
 
     def __post_init__(self) -> None:
         """"""

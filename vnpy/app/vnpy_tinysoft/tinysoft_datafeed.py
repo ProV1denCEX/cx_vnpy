@@ -73,7 +73,7 @@ class TinysoftDatafeed(BaseDatafeed):
 
         symbol, exchange = req.symbol, req.exchange
 
-        contracts = self.database.load_contract_data(symbol=req.symbol, product=Product.FUTURES)
+        contracts = self.database.load_contract_data(symbol=req.symbol, product=req.product)
         if contracts:
             contract = contracts[0]
 
@@ -226,9 +226,7 @@ class TinysoftDatafeed(BaseDatafeed):
 
         multiplier = kwargs.get('multiplier', 1)
 
-        before = data.copy()
-
-        after = before.copy()
+        after = data.copy()
 
         def fix_multiplier(data_):
             return data_.loc[:, col_amount] * multiplier
@@ -242,13 +240,12 @@ class TinysoftDatafeed(BaseDatafeed):
         def fix_replace_w_pvm(data_):
             return data_.loc[:, col_price] * data_.loc[:, col_volume] * multiplier
 
-        to_fix = before.copy()
+        to_fix = data.copy()
         bias = to_fix.loc[:, col_amount] / (
                     to_fix.loc[:, col_price] * to_fix.loc[:, col_volume] * multiplier)
         loc = (bias > thres_lower) & (bias < thres_upper)
         to_fix = to_fix[~loc]
 
-        fixed_lines = 0
         for func in [fix_multiplier, fix_10000, fix_multiplier_and_10000, fix_replace_w_pvm]:
             if to_fix.empty:
                 break
@@ -259,8 +256,6 @@ class TinysoftDatafeed(BaseDatafeed):
             loc = (bias > thres_lower) & (bias < thres_upper)
             fixed = fix[loc]
             to_fix = to_fix[~loc]
-
-            fixed_lines += len(fixed)
 
             after.loc[fixed.index, col_amount] = fixed
 

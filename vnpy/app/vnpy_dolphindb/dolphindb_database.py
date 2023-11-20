@@ -96,13 +96,15 @@ class DolphindbDatabase(BaseDatabase):
 
                 options_to_db.append(d)
 
-        df: pd.DataFrame = pd.DataFrame.from_records(futures_to_db)
-        appender: ddb.PartitionedTableAppender = ddb.PartitionedTableAppender(self.db_path, self.table_name["contract_futures"], "expire_date", self.pool)
-        appender.append(df)
+        if futures_to_db:
+            df: pd.DataFrame = pd.DataFrame.from_records(futures_to_db)
+            appender: ddb.PartitionedTableAppender = ddb.PartitionedTableAppender(self.db_path, self.table_name["contract_futures"], "expire_date", self.pool)
+            appender.append(df)
 
-        df: pd.DataFrame = pd.DataFrame.from_records(options_to_db)
-        appender: ddb.PartitionedTableAppender = ddb.PartitionedTableAppender(self.db_path, self.table_name["contract_options"], "datetime", self.pool)
-        appender.append(df)
+        if options_to_db:
+            df: pd.DataFrame = pd.DataFrame.from_records(options_to_db)
+            appender: ddb.PartitionedTableAppender = ddb.PartitionedTableAppender(self.db_path, self.table_name["contract_options"], "datetime", self.pool)
+            appender.append(df)
 
         return True
 

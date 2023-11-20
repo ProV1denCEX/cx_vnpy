@@ -3,7 +3,7 @@ from types import ModuleType
 from typing import Optional, List, Callable
 from importlib import import_module
 
-from .object import HistoryRequest, TickData, BarData
+from .object import HistoryRequest, TickData, BarData, ContractData
 from .setting import SETTINGS
 
 
@@ -15,6 +15,12 @@ class BaseDatafeed(ABC):
     def init(self, output: Callable = print) -> bool:
         """
         Initialize datafeed service connection.
+        """
+        pass
+
+    def query_contract_history(self, req: HistoryRequest, output: Callable = print) -> Optional[List[ContractData]]:
+        """
+        Query history contract data.
         """
         pass
 

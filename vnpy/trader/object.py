@@ -261,6 +261,19 @@ class ContractData(BaseData):
         """"""
         self.vt_symbol: str = f"{self.symbol}.{self.exchange.value}"
 
+        if self.product == Product.FUTURES:
+            contract = ''.join(i for i in self.symbol if i.isalpha())
+            digits = ''.join(i for i in self.symbol if i.isnumeric())
+
+            if len(digits) == 3:
+                year_10 = self.expire_date.year // 10 % 10
+                digits = str(year_10) + digits
+
+            elif self.exchange == Exchange.CZCE and len(digits) == 4:
+                self.symbol = contract.upper() + digits[-3:]
+
+            self.name = contract.upper() + digits
+
 
 @dataclass
 class QuoteData(BaseData):

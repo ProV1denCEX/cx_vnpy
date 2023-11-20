@@ -209,6 +209,28 @@ class ManagerEngine(BaseEngine):
 
         return count
 
+    def download_contract_data(
+        self,
+        product: Product,
+        listing_only: bool = True,
+        output: Callable = print
+    ):
+        symbol = "listing_only" if listing_only else "all"
+        req: HistoryRequest = HistoryRequest(
+            symbol=symbol,
+            exchange=Exchange.LOCAL,
+            product=product,
+            start=datetime.now(DB_TZ),
+        )
+
+        data: List[ContractData] = self.datafeed.query_contract_history(req, output)
+
+        if data:
+            self.database.save_contract_data(data)
+            return len(data)
+
+        return 0
+
     def download_bar_data(
         self,
         symbol: str,

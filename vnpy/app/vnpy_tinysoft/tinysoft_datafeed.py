@@ -7,15 +7,24 @@ from pyTSL import Client, DoubleToDatetime
 from vnpy.trader.database import get_database
 from vnpy.trader.setting import SETTINGS
 from vnpy.trader.constant import Exchange, Interval, Product
-from vnpy.trader.object import BarData, TickData, HistoryRequest
+from vnpy.trader.object import BarData, TickData, HistoryRequest, ContractData
 from vnpy.trader.utility import ZoneInfo, generate_ticker
 from vnpy.trader.datafeed import BaseDatafeed
-
 
 EXCHANGE_MAP: Dict[Exchange, str] = {
     Exchange.SSE: "SH",
     Exchange.SZSE: "SZ"
 }
+
+EXCHANGE_CHINESE_MAP: Dict[str, Exchange] = {
+    "大连商品交易所": Exchange.DCE,
+    "郑州商品交易所": Exchange.CZCE,
+    "上海期货交易所": Exchange.SHFE,
+    "上海国际能源交易中心": Exchange.INE,
+    "中国金融期货交易所": Exchange.CFFEX,
+    "广州期货交易所": Exchange.GFEX,
+}
+
 
 INTERVAL_MAP: Dict[Interval, str] = {
     Interval.MINUTE: "cy_1m",
@@ -64,6 +73,59 @@ class TinysoftDatafeed(BaseDatafeed):
         self.inited = True
         return True
 
+    def query_contract_history(self, req: HistoryRequest, output: Callable = print) -> Optional[List[ContractData]]:
+        """
+        Query history contract data.
+        """
+        if not self.inited:
+            n: bool = self.init(output)
+            if not n:
+                return []
+
+        if req.product == Product.OPTION:
+            raise NotImplementedError
+
+        if req.symbol == "listing_only":
+            bk_func = "GetBk"
+            bks = "'国内商品期货;股指期货;国债期货'"
+
+        else:
+            bk_func = "GetBkAll"
+            bks = "'国内商品期货;股指期货;国债期货'"
+
+        cmd = (f"symbols := {bk_func}({bks}); "
+               "return select * from infotable 703 of symbols end;")
+
+        contracts = []
+        result = self.client.exec(cmd)
+        if not result.error():
+            data = pd.DataFrame(result.value())
+            if not data.empty:
+                loc = data["变动日"] > 20100101
+                data = data[loc].sort_values('变动日')
+                for name, d in data.groupby('StockID'):
+                    if len(d) > 1:
+                        assert d["变动日"].iat[0] < d["变动日"].iat[-1]
+
+                    contract: ContractData = ContractData(
+                        symbol=d["StockName"].iat[0],
+                        exchange=EXCHANGE_CHINESE_MAP.get(d["上市地"].iat[0]),
+                        name=d["StockID"],
+                        product_id=d["交易代码"].iat[0],
+                        product=req.product,
+                        size=d["合约乘数"].iat[-1],
+                        pricetick=d["最小变动价位"].iat[-1],
+
+                        list_date=datetime.strptime(str(d["变动日"].iat[0]), "%Y%m%d"),
+                        expire_date=datetime.strptime(str(d["最后交易日"].iat[-1]), "%Y%m%d"),
+
+                        gateway_name="TSL"
+                    )
+
+                    contracts.append(contract)
+
+        return contracts
+
     def query_bar_history(self, req: HistoryRequest, output: Callable = print) -> Optional[List[BarData]]:
         """查询K线数据"""
         if not self.inited:
@@ -80,7 +142,7 @@ class TinysoftDatafeed(BaseDatafeed):
         else:
             raise ValueError("Contract data not found in db")
 
-        ticker = generate_ticker(symbol, req.end)
+        ticker = contract.name
 
         tsl_exchange: str = EXCHANGE_MAP.get(exchange, "")
         tsl_interval: str = INTERVAL_MAP[req.interval]
@@ -204,7 +266,7 @@ class TinysoftDatafeed(BaseDatafeed):
                     # 基金获取IOPV字段
                     if d["syl2"]:
                         iopv: float = d["syl2"]
-                        if exchange == Exchange.SZSE:       # 深交所的IOPV要除以100才是每股
+                        if exchange == Exchange.SZSE:  # 深交所的IOPV要除以100才是每股
                             iopv /= 100
 
                         tick.extra = {"iopv": iopv}
@@ -242,7 +304,7 @@ class TinysoftDatafeed(BaseDatafeed):
 
         to_fix = data.copy()
         bias = to_fix.loc[:, col_amount] / (
-                    to_fix.loc[:, col_price] * to_fix.loc[:, col_volume] * multiplier)
+                to_fix.loc[:, col_price] * to_fix.loc[:, col_volume] * multiplier)
         loc = (bias > thres_lower) & (bias < thres_upper)
         to_fix = to_fix[~loc]
 

@@ -655,6 +655,8 @@ class CtpTdApi(TdApi):
                 list_date=datetime.strptime(data["OpenDate"], "%Y%m%d"),
                 expire_date=datetime.strptime(data["ExpireDate"], "%Y%m%d"),
 
+                min_volume=data["MinLimitOrderVolume"],
+
                 gateway_name=self.gateway_name
             )
 

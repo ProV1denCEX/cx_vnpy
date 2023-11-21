@@ -10,7 +10,6 @@ from .object import BarData, TickData, ContractData
 from .setting import SETTINGS
 from .utility import ZoneInfo
 
-
 DB_TZ = ZoneInfo(SETTINGS["database.timezone"])
 
 
@@ -53,6 +52,7 @@ class BaseDatabase(ABC):
     """
     Abstract database class for connecting to different database.
     """
+
     @abstractmethod
     def save_contract_data(self, contracts: list[ContractData]) -> bool:
         """
@@ -89,12 +89,12 @@ class BaseDatabase(ABC):
 
     @abstractmethod
     def load_bar_data(
-        self,
-        symbol: str,
-        exchange: Exchange,
-        interval: Interval,
-        start: datetime,
-        end: datetime
+            self,
+            symbol: str,
+            exchange: Exchange,
+            interval: Interval,
+            start: datetime,
+            end: datetime
     ) -> List[BarData]:
         """
         Load bar data from database.
@@ -103,11 +103,11 @@ class BaseDatabase(ABC):
 
     @abstractmethod
     def load_tick_data(
-        self,
-        symbol: str,
-        exchange: Exchange,
-        start: datetime,
-        end: datetime
+            self,
+            symbol: str,
+            exchange: Exchange,
+            start: datetime,
+            end: datetime
     ) -> List[TickData]:
         """
         Load tick data from database.
@@ -116,10 +116,12 @@ class BaseDatabase(ABC):
 
     @abstractmethod
     def delete_bar_data(
-        self,
-        symbol: str,
-        exchange: Exchange,
-        interval: Interval
+            self,
+            symbol: str,
+            exchange: Exchange,
+            interval: Interval,
+            start: datetime = None,
+            end: datetime = None,
     ) -> int:
         """
         Delete all bar data with given symbol + exchange + interval.
@@ -128,9 +130,9 @@ class BaseDatabase(ABC):
 
     @abstractmethod
     def delete_tick_data(
-        self,
-        symbol: str,
-        exchange: Exchange
+            self,
+            symbol: str,
+            exchange: Exchange
     ) -> int:
         """
         Delete all tick data with given symbol + exchange.

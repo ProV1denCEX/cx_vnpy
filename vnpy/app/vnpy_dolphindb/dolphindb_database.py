@@ -334,12 +334,12 @@ class DolphindbDatabase(BaseDatabase):
             if start:
                 start = np.datetime64(start)
                 start: str = str(start).replace("-", ".")
-                query = query.where(f'list_date<={start}')
+                query = query.where(f'expire_date>={start}')
 
             if end:
                 end = np.datetime64(end)
                 end: str = str(end).replace("-", ".")
-                query = query.where(f'expire_date>={end}')
+                query = query.where(f'expire_date<={end}')
 
             df: pd.DataFrame = query.toDF()
 
@@ -557,41 +557,59 @@ class DolphindbDatabase(BaseDatabase):
     def delete_bar_data(
         self,
         symbol: str,
-        exchange: Exchange,
-        interval: Interval
+        exchange: Exchange = None,
+        interval: Interval = None,
+        start: datetime = None,
+        end: datetime = None,
     ) -> int:
         """删除K线数据"""
         # 加载数据表
         table: ddb.Table = self.session.loadTable(tableName=self.table_name["bar"], dbPath=self.db_path)
 
         # 统计数据量
-        df: pd.DataFrame = (
-            table.select('count(*)')
-            .where(f'symbol="{symbol}"')
-            .where(f'exchange="{exchange.value}"')
-            .where(f'interval="{interval.value}"')
-            .toDF()
-        )
+        query = table.select('count(*)')
+        if symbol:
+            query = query.where(f'symbol="{symbol}"')
+
+        if exchange:
+            query = query.where(f'exchange="{exchange.value}"')
+
+        if interval:
+            query = query.where(f'interval="{interval.value}"')
+
+        if start:
+            start = np.datetime64(start)
+            start: str = str(start).replace("-", ".")
+
+            query = query.where(f'datetime >= {start}')
+
+        if end:
+            end = np.datetime64(end)
+            end: str = str(end).replace("-", ".")
+
+            query = query.where(f'datetime <= {end}')
+
+        df: pd.DataFrame = query.toDF()
         count: int = df["count"][0]
 
         # 删除K线数据
-        (
-            table.delete()
-            .where(f'symbol="{symbol}"')
-            .where(f'exchange="{exchange.value}"')
-            .where(f'interval="{interval.value}"')
-            .execute()
-        )
+        query = table.delete()
+        if symbol:
+            query = query.where(f'symbol="{symbol}"')
 
-        # 删除K线汇总
-        table: ddb.Table = self.session.loadTable(tableName=self.table_name["baroverview"], dbPath=self.db_path)
-        (
-            table.delete()
-            .where(f'symbol="{symbol}"')
-            .where(f'exchange="{exchange.value}"')
-            .where(f'interval="{interval.value}"')
-            .execute()
-        )
+        if exchange:
+            query = query.where(f'exchange="{exchange.value}"')
+
+        if interval:
+            query = query.where(f'interval="{interval.value}"')
+
+        if start:
+            query = query.where(f'datetime >= {start}')
+
+        if end:
+            query = query.where(f'datetime <= {end}')
+
+        query.execute()
 
         return count
 

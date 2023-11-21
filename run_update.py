@@ -19,25 +19,18 @@ def main():
 
     data_manager = ManagerEngine(main_engine, event_engine)
 
-    # count = data_manager.download_contract_data(Product.FUTURES, False)
-    # print(f"contract download {count}")
+    count = data_manager.download_contract_data(Product.FUTURES, True)
+    print(f"contract download {count}")
 
-    # start = dt.datetime.now() - dt.timedelta(days=3)
-    contracts = data_manager.load_contract_data(product=Product.FUTURES, start=None, end=None)
+    start = (dt.datetime.now() - dt.timedelta(days=3)).replace(hour=0, minute=0, second=0, microsecond=0)
+    contracts = data_manager.load_contract_data(product=Product.FUTURES, start=start, end=None)
 
-    contracts = {contract.symbol: contract for contract in contracts if
-                 # contract.symbol == "j2401"}
-                 contract.product_id.upper() in {"IF", "T", "AG", "AP", "JM", "SI"}}
-
-    contracts = list(contracts.values())
+    count = data_manager.delete_bar_data(start=start)
+    print(f"delete {count}")
 
     with tqdm(total=len(contracts)) as pbar:
         for contract in contracts:
-            start_ = contract.list_date
-            # start_ = max(contract.list_date, dt.datetime.now() - dt.timedelta(days=3))
-            count = data_manager.delete_bar_data(contract.symbol, None, None)
-            print(f"{contract.symbol} delete {count}")
-
+            start_ = max(contract.list_date, start)
             count = data_manager.download_bar_data(contract.symbol, contract.exchange, contract.product, "1m",
                                                    start=start_, output=print)
             print(f"{contract.symbol} download {count}")

@@ -196,15 +196,19 @@ class ManagerEngine(BaseEngine):
 
     def delete_bar_data(
         self,
-        symbol: str,
-        exchange: Exchange,
-        interval: Interval
+        symbol: str = None,
+        exchange: Exchange = None,
+        interval: Interval = None,
+        start: datetime = None,
+        end: datetime = None,
     ) -> int:
         """"""
         count: int = self.database.delete_bar_data(
             symbol,
             exchange,
-            interval
+            interval,
+            start,
+            end
         )
 
         return count

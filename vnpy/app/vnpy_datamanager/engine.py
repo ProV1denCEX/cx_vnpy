@@ -324,13 +324,18 @@ class ManagerEngine(BaseEngine):
         else:
             bars = self.load_bar_data(symbol, exchange, Interval.MINUTE, start, end)
 
+            bgs = []
             if interval == "recorder":
+                # bgs.append(BarGenerator(None, interval=Interval.DAILY, on_window_bar=record_bar))
+
                 windows = [2, 3, 5, 15]
 
             else:
                 windows = [Interval.to_window(interval)]
 
-            bgs = [BarGenerator(None, window=i, on_window_bar=record_bar) for i in windows]
+            for i in windows:
+                bgs.append(BarGenerator(None, window=i, on_window_bar=record_bar))
+
             for bar in bars:
                 for bg in bgs:
                     bg.update_bar(bar)

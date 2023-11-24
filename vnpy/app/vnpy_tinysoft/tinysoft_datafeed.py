@@ -73,6 +73,17 @@ class TinysoftDatafeed(BaseDatafeed):
         self.inited = True
         return True
 
+    def query_trade_time(self, output: Callable = print):
+        """
+        Query history contract data.
+        """
+        if not self.inited:
+            n: bool = self.init(output)
+            if not n:
+                return []
+
+        pass
+
     def query_contract_history(self, req: HistoryRequest, output: Callable = print) -> Optional[List[ContractData]]:
         """
         Query history contract data.

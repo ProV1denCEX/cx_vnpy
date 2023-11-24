@@ -152,6 +152,26 @@ def create_contract_option_table_script(database: str, table_name: str = "contra
     return script
 
 
+def create_trade_time_table_script(database: str, table_name: str = "trade_time"):
+    db_path = "dfs://" + database
+    script = f"""
+    dataPath = "{db_path}"
+    db = database(dataPath)
+
+    overview_columns = ["product_id", "type", "serial", "start", "end", "datetime"]
+    overview_type = [SYMBOL, SYMBOL, INT, NANOTIMESTAMP, NANOTIMESTAMP, NANOTIMESTAMP]
+    baroverview = table(1:0, overview_columns, overview_type)
+    db.createPartitionedTable(
+        baroverview,
+        "{table_name}",
+        partitionColumns=["datetime"],
+        sortColumns=["product_id", "type", "datetime"],
+        keepDuplicates=LAST)
+    """
+
+    return script
+
+
 SCRIPTS_FUNC = {
     'database': create_database_script,
     'tick': create_tick_table_script,
@@ -161,4 +181,6 @@ SCRIPTS_FUNC = {
 
     'contract_futures': create_contract_future_table_script,
     'contract_options': create_contract_option_table_script,
+
+    'trade_time': create_trade_time_table_script
 }

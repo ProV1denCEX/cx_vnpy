@@ -43,6 +43,8 @@ SETTINGS: Dict[str, Any] = {
 
         'contract_futures': 'contract_futures',
         'contract_options': 'contract_options',
+
+        'trade_time': 'trade_time',
     }
 }
 

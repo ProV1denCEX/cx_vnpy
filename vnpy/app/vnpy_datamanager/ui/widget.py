@@ -436,14 +436,14 @@ class DateRangeDialog(QtWidgets.QDialog):
             QtCore.QDate(
                 start.year,
                 start.month,
-                start.day
+                start.day + 1
             )
         )
         self.end_edit: QtWidgets.QDateEdit = QtWidgets.QDateEdit(
             QtCore.QDate(
                 end.year,
                 end.month,
-                end.day
+                end.day + 1
             )
         )
 

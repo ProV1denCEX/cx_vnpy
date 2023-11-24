@@ -22,7 +22,7 @@ def main():
     count = data_manager.download_contract_data(Product.FUTURES, True)
     print(f"contract download {count}")
 
-    start = (dt.datetime.now() - dt.timedelta(days=3)).replace(hour=0, minute=0, second=0, microsecond=0)
+    start = (dt.datetime.now() - dt.timedelta(days=3)).replace(hour=16, minute=0, second=0, microsecond=0)
     contracts = data_manager.load_contract_data(product=Product.FUTURES, start=start, end=None)
 
     count = data_manager.delete_bar_data(start=start)
@@ -31,12 +31,11 @@ def main():
     with tqdm(total=len(contracts)) as pbar:
         for contract in contracts:
             start_ = max(contract.list_date, start)
-            count = data_manager.download_bar_data(contract.symbol, contract.exchange, contract.product, "1m",
-                                                   start=start_, output=print)
+            count = data_manager.download_bar_data(contract.symbol, contract.exchange, contract.product, "1m", start=start_, output=print)
+            count = data_manager.download_bar_data(contract.symbol, contract.exchange, contract.product, "d", start=start_, output=print)
             print(f"{contract.symbol} download {count}")
 
-            count = data_manager.rebuild_bar_data(contract.symbol, contract.exchange, "recorder",
-                                                  start=start_)
+            count = data_manager.rebuild_bar_data(contract.symbol, contract.exchange, "recorder", start=start_)
             print(f"{contract.symbol} rebuild {count}")
 
             pbar.update()

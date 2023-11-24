@@ -38,12 +38,11 @@ def main():
             count = data_manager.delete_bar_data(contract.symbol, None, None)
             print(f"{contract.symbol} delete {count}")
 
-            count = data_manager.download_bar_data(contract.symbol, contract.exchange, contract.product, "1m",
-                                                   start=start_, output=print)
+            count = data_manager.download_bar_data(contract.symbol, contract.exchange, contract.product, "1m", start=start_, output=print)
+            count = data_manager.download_bar_data(contract.symbol, contract.exchange, contract.product, "d", start=start_, output=print)
             print(f"{contract.symbol} download {count}")
 
-            count = data_manager.rebuild_bar_data(contract.symbol, contract.exchange, "recorder",
-                                                  start=start_)
+            count = data_manager.rebuild_bar_data(contract.symbol, contract.exchange, "recorder", start=start_)
             print(f"{contract.symbol} rebuild {count}")
 
             pbar.update()

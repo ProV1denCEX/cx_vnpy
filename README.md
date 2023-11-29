@@ -30,7 +30,7 @@ base: 1.0.4; 1.0.5/1.0.6 ignored
 
 考虑实际意义，重新规划路径顺序
 
-- [ ] main build / record ———— 先采用移植autobatch 的方案
+- [x] main build / record ———— 先采用移植autobatch 的方案
 - [ ] backtester
 - [ ] 1 vs many
 - [ ] paper trade
@@ -53,5 +53,7 @@ base: 1.0.4; 1.0.5/1.0.6 ignored
 - [ ] 郑商所 0.5 tick 的问题
 
 - [ ] quote 1min transfer / download
+- [ ] 0 price bar fix / BarFixer
+- [ ] 20231124 start trading contract in main ticker generating
 
 

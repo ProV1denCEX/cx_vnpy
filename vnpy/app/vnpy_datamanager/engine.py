@@ -237,27 +237,50 @@ class ManagerEngine(BaseEngine):
 
     def download_bar_data(
         self,
-        symbol: str,
-        exchange: Exchange,
-        product: Product,
-        interval: str,
-        start: datetime,
-        output: Callable
-    ) -> int:
+        symbol: str = "",
+        exchange: Exchange = None,
+        product: Product = Product.FUTURES,
+        interval: str = "1m",
+        start: datetime = datetime(2010, 1, 1),
+
+        output: Callable = print,
+        return_data: bool = False,
+
+        contract: ContractData = None
+    ):
         """
         Query bar data from datafeed.
         """
-        req: HistoryRequest = HistoryRequest(
-            symbol=symbol,
-            exchange=exchange,
-            product=product,
-            interval=Interval(interval),
-            start=start,
-            end=datetime.now(DB_TZ)
-        )
 
-        vt_symbol: str = f"{symbol}.{exchange.value}"
-        contract: Optional[ContractData] = self.main_engine.get_contract(vt_symbol)
+        assert symbol or contract
+
+        if contract:
+            req: HistoryRequest = HistoryRequest(
+                symbol=contract.symbol,
+                exchange=contract.exchange,
+                product=contract.product,
+                interval=Interval(interval),
+                start=start,
+                end=datetime.now(DB_TZ)
+            )
+
+            vt_symbol: str = contract.vt_symbol
+            req.start = max(start, contract.list_date)
+
+        else:
+            req: HistoryRequest = HistoryRequest(
+                symbol=symbol,
+                exchange=exchange,
+                product=product,
+                interval=Interval(interval),
+                start=start,
+                end=datetime.now(DB_TZ)
+            )
+
+            vt_symbol: str = f"{symbol}.{exchange.value}"
+            contract: Optional[ContractData] = self.main_engine.get_contract(vt_symbol)
+
+        req.contract = contract
 
         # If history data provided in gateway, then query
         if contract and contract.history_data:
@@ -270,9 +293,12 @@ class ManagerEngine(BaseEngine):
 
         if data:
             self.database.save_bar_data({vt_symbol: data})
-            return len(data)
 
-        return 0
+        if return_data:
+            return data
+
+        else:
+            return len(data)
 
     def download_tick_data(
         self,
@@ -342,6 +368,41 @@ class ManagerEngine(BaseEngine):
 
         if bars_to_save:
             vt_symbol = generate_vt_symbol(symbol, exchange)
+            self.database.save_bar_data({vt_symbol: bars_to_save})
+            return len(bars_to_save)
+
+        return 0
+
+    def rebuild_bar_data_from_data(self, data: list, interval: Interval):
+        bars_to_save = []
+
+        def record_bar(bar):
+            bars_to_save.append(bar)
+
+        if interval == "1m":
+            bg = BarGenerator(record_bar)
+            for tick in data:
+                bg.update_tick(tick)
+
+        else:
+            bgs = []
+            if interval == "recorder":
+                # bgs.append(BarGenerator(None, interval=Interval.DAILY, on_window_bar=record_bar))
+
+                windows = [2, 3, 5, 15]
+
+            else:
+                windows = [Interval.to_window(interval)]
+
+            for i in windows:
+                bgs.append(BarGenerator(None, window=i, on_window_bar=record_bar))
+
+            for bar in data:
+                for bg in bgs:
+                    bg.update_bar(bar)
+
+        if bars_to_save:
+            vt_symbol = generate_vt_symbol(data[0].symbol, data[0].exchange)
             self.database.save_bar_data({vt_symbol: bars_to_save})
             return len(bars_to_save)
 

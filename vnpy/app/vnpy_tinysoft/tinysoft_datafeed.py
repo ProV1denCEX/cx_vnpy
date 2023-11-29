@@ -144,16 +144,18 @@ class TinysoftDatafeed(BaseDatafeed):
             if not n:
                 return []
 
-        symbol, exchange = req.symbol, req.exchange
-
-        contracts = self.database.load_contract_data(symbol=req.symbol, product=req.product)
-        if contracts:
-            contract = contracts[0]
+        if req.contract:
+            contract = req.contract
 
         else:
-            raise ValueError("Contract data not found in db")
+            contracts = self.database.load_contract_data(symbol=req.symbol, product=req.product, start=req.start, end=req.end)
+            if contracts:
+                contract = contracts[0]
 
-        ticker = contract.name
+            else:
+                raise ValueError("Contract data not found in db")
+
+        symbol, exchange, ticker = contract.symbol, contract.exchange, contract.name
 
         tsl_exchange: str = EXCHANGE_MAP.get(exchange, "")
         tsl_interval: str = INTERVAL_MAP[req.interval]
@@ -181,10 +183,11 @@ class TinysoftDatafeed(BaseDatafeed):
                     data['dt'] -= shift
 
                 data = self.fix_amount(data, multiplier=contract.size)
+                data = self.fix_zero_price(data)
 
                 for _, d in data.iterrows():
                     bar: BarData = BarData(
-                        symbol=d["StockName"],
+                        symbol=symbol,
                         exchange=exchange,
                         datetime=d["dt"].replace(tzinfo=CHINA_TZ),
                         interval=req.interval,
@@ -287,6 +290,20 @@ class TinysoftDatafeed(BaseDatafeed):
             dt += timedelta(days=1)
 
         return ticks
+
+    @staticmethod
+    def fix_zero_price(data, **kwargs):
+        col_price = kwargs.get('col_price', 'close')
+        col_volume = kwargs.get('col_volume', 'vol')
+
+        col_prices = kwargs.get('col_prices', ['open', 'high', 'low', 'close'])
+
+        after = data.copy()
+
+        loc = data[col_volume] == 0
+        after.loc[loc, col_prices] = after.loc[loc, col_price]
+
+        return after
 
     @staticmethod
     def fix_amount(data, **kwargs):

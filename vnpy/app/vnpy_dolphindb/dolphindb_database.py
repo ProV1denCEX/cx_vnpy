@@ -339,7 +339,7 @@ class DolphindbDatabase(BaseDatabase):
             if end:
                 end = np.datetime64(end)
                 end: str = str(end).replace("-", ".")
-                query = query.where(f'expire_date<={end}')
+                query = query.where(f'list_date<={end}')
 
             df: pd.DataFrame = query.toDF()
 

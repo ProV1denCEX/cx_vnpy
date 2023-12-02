@@ -524,15 +524,6 @@ class DolphindbDatabase(BaseDatabase):
             .execute()
         )
 
-        # 删除Tick汇总
-        table: ddb.Table = self.session.loadTable(tableName=self.table_name["tickoverview"], dbPath=self.db_path)
-        (
-            table.delete()
-            .where(f'symbol="{symbol}"')
-            .where(f'exchange="{exchange.value}"')
-            .execute()
-        )
-
         return count
 
     def get_bar_overview(self) -> list[BarOverview]:

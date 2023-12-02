@@ -264,7 +264,6 @@ class ManagerEngine(BaseEngine):
                 end=datetime.now(DB_TZ)
             )
 
-            vt_symbol: str = contract.vt_symbol
             req.start = max(start, contract.list_date)
 
         else:
@@ -292,7 +291,7 @@ class ManagerEngine(BaseEngine):
             data: List[BarData] = self.datafeed.query_bar_history(req, output)
 
         if data:
-            self.database.save_bar_data({vt_symbol: data})
+            self.database.save_bar_data(data)
 
         if return_data:
             return data
@@ -320,9 +319,7 @@ class ManagerEngine(BaseEngine):
         data: List[TickData] = self.datafeed.query_tick_history(req, output)
 
         if data:
-            vt_symbol: str = f"{symbol}.{exchange.value}"
-
-            self.database.save_tick_data({vt_symbol: data})
+            self.database.save_tick_data(data)
             return len(data)
 
         return 0
@@ -367,8 +364,7 @@ class ManagerEngine(BaseEngine):
                     bg.update_bar(bar)
 
         if bars_to_save:
-            vt_symbol = generate_vt_symbol(symbol, exchange)
-            self.database.save_bar_data({vt_symbol: bars_to_save})
+            self.database.save_bar_data(bars_to_save)
             return len(bars_to_save)
 
         return 0
@@ -402,8 +398,7 @@ class ManagerEngine(BaseEngine):
                     bg.update_bar(bar)
 
         if bars_to_save:
-            vt_symbol = generate_vt_symbol(data[0].symbol, data[0].exchange)
-            self.database.save_bar_data({vt_symbol: bars_to_save})
+            self.database.save_bar_data(bars_to_save)
             return len(bars_to_save)
 
         return 0

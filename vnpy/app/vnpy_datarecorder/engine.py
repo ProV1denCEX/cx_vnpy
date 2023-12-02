@@ -50,8 +50,8 @@ class RecorderEngine(BaseEngine):
         self.timer_count: int = 0
         self.timer_interval: int = 10
 
-        self.ticks: Dict[str, List[TickData]] = defaultdict(list)
-        self.bars: Dict[str, List[BarData]] = defaultdict(list)
+        self.ticks: List[TickData] = []
+        self.bars: List[BarData] = []
 
         self.database: BaseDatabase = get_database()
 
@@ -270,11 +270,11 @@ class RecorderEngine(BaseEngine):
 
     def record_tick(self, tick: TickData) -> None:
         """"""
-        self.ticks[tick.vt_symbol].append(tick)
+        self.ticks.append(tick)
 
     def record_bar(self, bar: BarData) -> None:
         """"""
-        self.bars[bar.vt_symbol].append(bar)
+        self.bars.append(bar)
 
     def on_1min_bar(self, bar):
         self.record_bar(bar)

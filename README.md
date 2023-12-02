@@ -31,10 +31,12 @@ base: 1.0.4; 1.0.5/1.0.6 ignored
 考虑实际意义，重新规划路径顺序
 
 - [x] main build / record ———— 先采用移植autobatch 的方案
+- [ ] validate main quote by notebook backtest (use no night trading contracts)
 - [ ] backtester
 - [ ] 1 vs many
 - [ ] paper trade
 
+- [ ] rebuild all quote is a must
 
 细节问题延后处理
 问题：

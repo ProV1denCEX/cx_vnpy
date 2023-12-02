@@ -61,14 +61,14 @@ class BaseDatabase(ABC):
         pass
 
     @abstractmethod
-    def save_bar_data(self, bars: dict[str, list[BarData]], stream: bool = False) -> bool:
+    def save_bar_data(self, bars: list[BarData], stream: bool = False) -> bool:
         """
         Save bar data into database.
         """
         pass
 
     @abstractmethod
-    def save_tick_data(self, ticks: dict[str, list[TickData]], stream: bool = False) -> bool:
+    def save_tick_data(self, ticks: list[TickData], stream: bool = False) -> bool:
         """
         Save tick data into database.
         """

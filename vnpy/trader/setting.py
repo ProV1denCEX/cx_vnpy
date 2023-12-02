@@ -38,8 +38,6 @@ SETTINGS: Dict[str, Any] = {
     "database.table_name": {
         'tick': 'tick',
         'bar': 'bar',
-        'tickoverview': 'tickoverview',
-        'baroverview': 'baroverview',
 
         'contract_futures': 'contract_futures',
         'contract_options': 'contract_options',

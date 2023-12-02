@@ -176,8 +176,6 @@ SCRIPTS_FUNC = {
     'database': create_database_script,
     'tick': create_tick_table_script,
     'bar': create_bar_table_script,
-    'tickoverview': create_tickoverview_table_script,
-    'baroverview': create_baroverview_table_script,
 
     'contract_futures': create_contract_future_table_script,
     'contract_options': create_contract_option_table_script,

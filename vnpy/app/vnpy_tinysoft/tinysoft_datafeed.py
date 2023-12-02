@@ -39,6 +39,9 @@ SHIFT_MAP: Dict[Interval, timedelta] = {
 
 CHINA_TZ = ZoneInfo("Asia/Shanghai")
 
+LISTING_SYMBOL = "listing_only"
+ALL_SYMBOL = "all"
+
 
 class TinysoftDatafeed(BaseDatafeed):
     """天软数据服务接口"""
@@ -96,13 +99,13 @@ class TinysoftDatafeed(BaseDatafeed):
         if req.product == Product.OPTION:
             raise NotImplementedError
 
-        if req.symbol == "listing_only":
+        if req.symbol == LISTING_SYMBOL:
             bk_func = "GetBk"
-            bks = "'国内商品期货;股指期货;国债期货'"
 
         else:
             bk_func = "GetBkAll"
-            bks = "'国内商品期货;股指期货;国债期货'"
+
+        bks = "'国内商品期货;股指期货;国债期货'"
 
         cmd = (f"symbols := {bk_func}({bks}); "
                "return select * from infotable 703 of symbols end;")
@@ -144,6 +147,92 @@ class TinysoftDatafeed(BaseDatafeed):
             if not n:
                 return []
 
+        if req.symbol in {LISTING_SYMBOL, ALL_SYMBOL}:
+            bars = self.query_bar_history_by_date(req)
+
+        else:
+            bars = self.query_bar_history_by_contract(req)
+
+        return bars
+
+    def query_bar_history_by_date(self, req: HistoryRequest) -> Optional[List[BarData]]:
+        if req.symbol == LISTING_SYMBOL:
+            bk_func = "GetBk"
+
+        else:
+            bk_func = "GetBkAll"
+
+        if req.product == Product.FUTURES:
+            bks = "'国内商品期货;股指期货;国债期货'"
+
+        else:
+            raise NotImplementedError
+
+        tsl_ticker = f"{bk_func}({bks})"
+        tsl_interval: str = INTERVAL_MAP[req.interval]
+
+        bars: List[BarData] = []
+
+        start_str: str = req.start.strftime("%Y%m%d")
+        end_str: str = req.end.strftime("%Y%m%d")
+
+        cmd: str = (
+            f"setsysparam(pn_cycle(),{tsl_interval}());"
+            "setsysparam('cyclefilter', 1);"
+            "return select * from markettable "
+            f"datekey {start_str}.210000T to {end_str}.153000T "
+            f"of {tsl_ticker} end;"
+        )
+        result = self.client.exec(cmd)
+
+        if not result.error():
+            data = pd.DataFrame(result.value())
+            if not data.empty:
+                data['dt'] = data['date'].apply(DoubleToDatetime)
+
+                shift: timedelta = SHIFT_MAP.get(req.interval, None)
+                if shift:
+                    data['dt'] -= shift
+
+                contracts = self.database.load_contract_data(product=req.product, start=req.start.replace(hour=0, minute=0, second=0))
+
+                contract_info = pd.DataFrame({
+                    'symbol': [contract.symbol for contract in contracts],
+                    'name': [contract.name for contract in contracts],
+                    'exchange': [contract.exchange for contract in contracts],
+                    'size': [contract.size for contract in contracts],
+                })
+
+                data['StockID'] = data['StockID'].str.upper()
+                data = data.merge(contract_info, how='left', left_on='StockID', right_on='name').dropna()
+
+                data = self.fix_amount(data, multiplier='size')
+                data = self.fix_zero_price(data)
+
+                for _, d in data.iterrows():
+                    bar: BarData = BarData(
+                        symbol=d["symbol"],
+                        exchange=d["exchange"],
+                        datetime=d["dt"].replace(tzinfo=CHINA_TZ),
+                        interval=req.interval,
+                        open_price=d["open"],
+                        high_price=d["high"],
+                        low_price=d["low"],
+                        close_price=d["close"],
+                        volume=d["vol"],
+                        turnover=d["amount"],
+                        gateway_name="TSL"
+                    )
+
+                    # 期货则获取持仓量字段
+                    if req.product in {Product.FUTURES, Product.OPTION}:
+                        bar.open_interest = d["sectional_cjbs"]
+
+                    bars.append(bar)
+
+        return bars
+
+    def query_bar_history_by_contract(self, req: HistoryRequest) -> Optional[List[BarData]]:
         if req.contract:
             contract = req.contract
 
@@ -158,6 +247,7 @@ class TinysoftDatafeed(BaseDatafeed):
         symbol, exchange, ticker = contract.symbol, contract.exchange, contract.name
 
         tsl_exchange: str = EXCHANGE_MAP.get(exchange, "")
+        tsl_ticker = f"'{tsl_exchange}{ticker}'"
         tsl_interval: str = INTERVAL_MAP[req.interval]
 
         bars: List[BarData] = []
@@ -167,9 +257,10 @@ class TinysoftDatafeed(BaseDatafeed):
 
         cmd: str = (
             f"setsysparam(pn_cycle(),{tsl_interval}());"
+            "setsysparam('cyclefilter', 1);"
             "return select * from markettable "
             f"datekey {start_str}T to {end_str}T "
-            f"of '{tsl_exchange}{ticker}' end;"
+            f"of {tsl_ticker} end;"
         )
         result = self.client.exec(cmd)
 
@@ -201,7 +292,7 @@ class TinysoftDatafeed(BaseDatafeed):
                     )
 
                     # 期货则获取持仓量字段
-                    if not tsl_exchange:
+                    if req.product in {Product.FUTURES, Product.OPTION}:
                         bar.open_interest = d["sectional_cjbs"]
 
                     bars.append(bar)
@@ -318,21 +409,28 @@ class TinysoftDatafeed(BaseDatafeed):
 
         after = data.copy()
 
+        def get_multiplier(data_):
+            if isinstance(multiplier, str):
+                return data_[multiplier]
+
+            else:
+                return multiplier
+
         def fix_multiplier(data_):
-            return data_.loc[:, col_amount] * multiplier
+            return data_.loc[:, col_amount] * get_multiplier(data_)
 
         def fix_10000(data_):
             return data_.loc[:, col_amount] * 10000
 
         def fix_multiplier_and_10000(data_):
-            return data_.loc[:, col_amount] * 10000 * multiplier
+            return data_.loc[:, col_amount] * 10000 * get_multiplier(data_)
 
         def fix_replace_w_pvm(data_):
-            return data_.loc[:, col_price] * data_.loc[:, col_volume] * multiplier
+            return data_.loc[:, col_price] * data_.loc[:, col_volume] * get_multiplier(data_)
 
         to_fix = data.copy()
         bias = to_fix.loc[:, col_amount] / (
-                to_fix.loc[:, col_price] * to_fix.loc[:, col_volume] * multiplier)
+                to_fix.loc[:, col_price] * to_fix.loc[:, col_volume] * get_multiplier(to_fix))
         loc = (bias > thres_lower) & (bias < thres_upper)
         to_fix = to_fix[~loc]
 
@@ -341,7 +439,7 @@ class TinysoftDatafeed(BaseDatafeed):
                 break
 
             fix = func(to_fix)
-            bias = fix / (to_fix.loc[:, col_price] * to_fix.loc[:, col_volume] * multiplier)
+            bias = fix / (to_fix.loc[:, col_price] * to_fix.loc[:, col_volume] * get_multiplier(to_fix))
 
             loc = (bias > thres_lower) & (bias < thres_upper)
             fixed = fix[loc]

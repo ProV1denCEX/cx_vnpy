@@ -148,14 +148,14 @@ class TinysoftDatafeed(BaseDatafeed):
                 return []
 
         if req.symbol in {LISTING_SYMBOL, ALL_SYMBOL}:
-            bars = self.query_bar_history_by_date(req)
+            bars = self.query_bar_history_by_date(req, output)
 
         else:
-            bars = self.query_bar_history_by_contract(req)
+            bars = self.query_bar_history_by_contract(req, output)
 
         return bars
 
-    def query_bar_history_by_date(self, req: HistoryRequest) -> Optional[List[BarData]]:
+    def query_bar_history_by_date(self, req: HistoryRequest, output: Callable = print) -> Optional[List[BarData]]:
         if req.symbol == LISTING_SYMBOL:
             bk_func = "GetBk"
 
@@ -173,19 +173,22 @@ class TinysoftDatafeed(BaseDatafeed):
 
         bars: List[BarData] = []
 
-        start_str: str = req.start.strftime("%Y%m%d")
-        end_str: str = req.end.strftime("%Y%m%d")
+        start_str: str = req.start.strftime("%Y%m%d.%H%M%ST")
+        end_str: str = req.end.strftime("%Y%m%d.%H%M%ST")
 
         cmd: str = (
             f"setsysparam(pn_cycle(),{tsl_interval}());"
             "setsysparam('cyclefilter', 1);"
             "return select * from markettable "
-            f"datekey {start_str}.210000T to {end_str}.153000T "
+            f"datekey {start_str} to {end_str} "
             f"of {tsl_ticker} end;"
         )
         result = self.client.exec(cmd)
 
-        if not result.error():
+        if result.error():
+            output(result)
+
+        else:
             data = pd.DataFrame(result.value())
             if not data.empty:
                 data['dt'] = data['date'].apply(DoubleToDatetime)
@@ -204,7 +207,10 @@ class TinysoftDatafeed(BaseDatafeed):
                 })
 
                 data['StockID'] = data['StockID'].str.upper()
-                data = data.merge(contract_info, how='left', left_on='StockID', right_on='name').dropna()
+                data = data.merge(contract_info, how='left', left_on='StockID', right_on='name')
+                if pd.isna(data).any().any():
+                    output("WARNING: na detected in tsl data query. check contract info!")
+                    data = data.dropna()
 
                 data = self.fix_amount(data, multiplier='size')
                 data = self.fix_zero_price(data)
@@ -232,7 +238,7 @@ class TinysoftDatafeed(BaseDatafeed):
 
         return bars
 
-    def query_bar_history_by_contract(self, req: HistoryRequest) -> Optional[List[BarData]]:
+    def query_bar_history_by_contract(self, req: HistoryRequest, output: Callable = print) -> Optional[List[BarData]]:
         if req.contract:
             contract = req.contract
 
@@ -252,19 +258,22 @@ class TinysoftDatafeed(BaseDatafeed):
 
         bars: List[BarData] = []
 
-        start_str: str = req.start.strftime("%Y%m%d")
-        end_str: str = req.end.strftime("%Y%m%d")
+        start_str: str = req.start.strftime("%Y%m%d.%H%M%ST")
+        end_str: str = req.end.strftime("%Y%m%d.%H%M%ST")
 
         cmd: str = (
             f"setsysparam(pn_cycle(),{tsl_interval}());"
             "setsysparam('cyclefilter', 1);"
             "return select * from markettable "
-            f"datekey {start_str}T to {end_str}T "
+            f"datekey {start_str} to {end_str} "
             f"of {tsl_ticker} end;"
         )
         result = self.client.exec(cmd)
 
-        if not result.error():
+        if result.error():
+            output(result)
+
+        else:
             data = pd.DataFrame(result.value())
             if not data.empty:
                 data['dt'] = data['date'].apply(DoubleToDatetime)

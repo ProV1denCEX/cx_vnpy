@@ -242,6 +242,7 @@ class ManagerEngine(BaseEngine):
         product: Product = Product.FUTURES,
         interval: str = "1m",
         start: datetime = datetime(2010, 1, 1),
+        end: datetime = datetime.now(DB_TZ),
 
         output: Callable = print,
         return_data: bool = False,
@@ -261,7 +262,7 @@ class ManagerEngine(BaseEngine):
                 product=contract.product,
                 interval=Interval(interval),
                 start=start,
-                end=datetime.now(DB_TZ)
+                end=end
             )
 
             req.start = max(start, contract.list_date)
@@ -273,7 +274,7 @@ class ManagerEngine(BaseEngine):
                 product=product,
                 interval=Interval(interval),
                 start=start,
-                end=datetime.now(DB_TZ)
+                end=end
             )
 
             vt_symbol: str = f"{symbol}.{exchange.value}"

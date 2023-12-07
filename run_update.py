@@ -5,13 +5,13 @@ from tqdm.auto import tqdm
 
 from vnpy.event import EventEngine
 from vnpy.trader.constant import Product, Exchange
-
 from vnpy.trader.engine import MainEngine
-
 from vnpy.app.vnpy_datamanager import ManagerEngine
 
+from Pandora.helper import TDays
 
-def main():
+
+def run(start_date, end_date, output=print):
     """"""
     event_engine = EventEngine()
 
@@ -20,40 +20,66 @@ def main():
     data_manager = ManagerEngine(main_engine, event_engine)
 
     count = data_manager.download_contract_data(Product.FUTURES, True)
-    print(f"contract download {count}")
+    output(f"contract download {count}")
 
-    start = (dt.datetime.now() - dt.timedelta(days=3)).replace(hour=16, minute=0, second=0, microsecond=0)
+    periods = TDays.period(start_date, end_date, None)
 
-    count = data_manager.delete_bar_data(start=start)
-    print(f"delete {count}")
+    with tqdm(total=len(periods), desc=f"updating quote data from {start_date} to {end_date}") as pbar:
+        for trade_date in periods:
+            output(f"updating quote data @{trade_date}...")
+            prev_tday, tday, _ = TDays.interval(trade_date, fmt=None, end_hour=0)
 
-    bars = data_manager.download_bar_data("listing_only", Exchange.LOCAL, Product.FUTURES, "1m", start=start,
-                                          output=print, return_data=True)
-    print(f"listing_only download 1m {len(bars)}")
+            start = dt.datetime.combine(prev_tday, dt.time(hour=21))
+            end = dt.datetime.combine(tday, dt.time(hour=15, minute=30))
 
-    count = data_manager.download_bar_data("listing_only", Exchange.LOCAL, Product.FUTURES, "d", start=start, output=print)
-    print(f"listing_only download daily {count}")
+            count = data_manager.delete_bar_data(start=start, end=end)
+            output(f"delete bar from {start} to {end} {count}")
 
-    bars_to_build = {}
-    for bar in bars:
-        if bar.symbol in bars_to_build:
-            bars_to_build[bar.symbol].append(bar)
+            bars = data_manager.download_bar_data(
+                "listing_only",
+                Exchange.LOCAL,
+                Product.FUTURES,
+                "1m",
+                start=start,
+                end=end,
+                output=output,
+                return_data=True
+            )
+            output(f"listing_only download 1m from {start} to {end} {len(bars)}")
 
-        else:
-            bars_to_build[bar.symbol] = [bar]
+            count = data_manager.download_bar_data(
+                "listing_only",
+                Exchange.LOCAL,
+                Product.FUTURES,
+                "d",
+                start=start,
+                end=end,
+                output=output
+            )
+            output(f"listing_only download daily from {start} to {end} {count}")
 
-    total = 0
-    with tqdm(total=len(bars_to_build), desc="rebuilding bars...") as pbar:
-        for symbol, bars_ in bars_to_build.items():
-            bars_.sort(key=lambda x: x.datetime)
-            count = data_manager.rebuild_bar_data_from_data(bars_, "recorder")
-            total += count
+            bars_to_build = {}
+            for bar in bars:
+                if bar.symbol in bars_to_build:
+                    bars_to_build[bar.symbol].append(bar)
+
+                else:
+                    bars_to_build[bar.symbol] = [bar]
+
+            total = 0
+            for symbol, bars_ in bars_to_build.items():
+                bars_.sort(key=lambda x: x.datetime)
+                count = data_manager.rebuild_bar_data_from_data(bars_, "recorder")
+                total += count
+
+            output(f"listing_only rebuild recorder from {start} to {end} {total}")
             pbar.update()
-
-    print(f"listing_only rebuild recorder {total}")
 
     main_engine.close()
 
 
 if __name__ == "__main__":
-    main()
+    start, end, _ = TDays.interval(end_hour=0)
+
+    # start = end = TDays.get_tday(end_hour=0)
+    run(start, end)

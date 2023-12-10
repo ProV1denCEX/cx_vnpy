@@ -36,7 +36,7 @@ class DolphindbDatabase(BaseDatabase):
         self.session.connect(self.host, self.port, self.user, self.password)
 
         # 创建连接池（用于数据写入）
-        self.pool: ddb.DBConnectionPool = ddb.DBConnectionPool(self.host, self.port, 5, self.user, self.password)
+        self.pool: ddb.DBConnectionPool = ddb.DBConnectionPool(self.host, self.port, 2, self.user, self.password)
 
         # 初始化数据库和数据表
         if not self.session.existsDatabase(self.db_path):

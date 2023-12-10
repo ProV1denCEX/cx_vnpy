@@ -12,6 +12,7 @@ from decimal import Decimal
 from math import floor, ceil
 
 import numpy as np
+import pandas as pd
 import talib
 
 from .object import BarData, TickData
@@ -518,6 +519,7 @@ class ArrayManager(object):
         self.size: int = size
         self.inited: bool = False
 
+        self.datetime_array: np.ndarray = np.zeros(size, dtype=datetime)
         self.open_array: np.ndarray = np.zeros(size)
         self.high_array: np.ndarray = np.zeros(size)
         self.low_array: np.ndarray = np.zeros(size)
@@ -534,6 +536,7 @@ class ArrayManager(object):
         if not self.inited and self.count >= self.size:
             self.inited = True
 
+        self.datetime_array[:-1] = self.datetime_array[1:]
         self.open_array[:-1] = self.open_array[1:]
         self.high_array[:-1] = self.high_array[1:]
         self.low_array[:-1] = self.low_array[1:]
@@ -542,6 +545,7 @@ class ArrayManager(object):
         self.turnover_array[:-1] = self.turnover_array[1:]
         self.open_interest_array[:-1] = self.open_interest_array[1:]
 
+        self.datetime_array[-1] = bar.datetime
         self.open_array[-1] = bar.open_price
         self.high_array[-1] = bar.high_price
         self.low_array[-1] = bar.low_price
@@ -781,6 +785,16 @@ class ArrayManager(object):
         if array:
             return result
         return result[-1]
+
+    def stm(self, n: int, array: bool = False) -> Union[float, pd.Series]:
+        hh = pd.Series(self.high).rolling(n, min_periods=1).max()
+        ll = pd.Series(self.low).rolling(n, min_periods=1).min()
+
+        result: pd.Series = ((self.close * 2 - (hh + ll)).ewm(span=5).mean()) / (hh - ll).ewm(span=5).mean()
+
+        if array:
+            return result
+        return result.iat[-1]
 
     def macd(
         self,

@@ -49,9 +49,9 @@ class BacktestingEngine:
         self.sizes: Dict[str, float] = 1
         self.priceticks: Dict[str, float] = 0
 
-        self.capital: float = 1_000_000
+        self.capital: float = 1e8
         self.risk_free: float = 0
-        self.annual_days: int = 240
+        self.annual_days: int = 252
 
         self.strategy_class: StrategyTemplate = None
         self.strategy: StrategyTemplate = None
@@ -104,7 +104,7 @@ class BacktestingEngine:
         capital: int = 0,
         end: datetime = None,
         risk_free: float = 0,
-        annual_days: int = 240
+        annual_days: int = 252
     ) -> None:
         """设置参数"""
         self.vt_symbols = vt_symbols
@@ -143,53 +143,19 @@ class BacktestingEngine:
         self.history_data.clear()
         self.dts.clear()
 
-        # 每次加载30天历史数据
-        progress_delta: timedelta = timedelta(days=30)
-        total_delta: timedelta = self.end - self.start
-        interval_delta: timedelta = INTERVAL_DELTA_MAP[self.interval]
-
         for vt_symbol in self.vt_symbols:
-            if self.interval == Interval.MINUTE:
-                start: datetime = self.start
-                end: datetime = self.start + progress_delta
-                progress = 0
+            data: List[BarData] = load_bar_data(
+                vt_symbol,
+                self.interval,
+                self.start,
+                self.end
+            )
 
-                data_count = 0
-                while start < self.end:
-                    end = min(end, self.end)
+            for bar in data:
+                self.dts.add(bar.datetime)
+                self.history_data[(bar.datetime, vt_symbol)] = bar
 
-                    data: List[BarData] = load_bar_data(
-                        vt_symbol,
-                        self.interval,
-                        start,
-                        end
-                    )
-
-                    for bar in data:
-                        self.dts.add(bar.datetime)
-                        self.history_data[(bar.datetime, vt_symbol)] = bar
-                        data_count += 1
-
-                    progress += progress_delta / total_delta
-                    progress = min(progress, 1)
-                    progress_bar = "#" * int(progress * 10)
-                    self.output(f"{vt_symbol}加载进度：{progress_bar} [{progress:.0%}]")
-
-                    start = end + interval_delta
-                    end += (progress_delta + interval_delta)
-            else:
-                data: List[BarData] = load_bar_data(
-                    vt_symbol,
-                    self.interval,
-                    self.start,
-                    self.end
-                )
-
-                for bar in data:
-                    self.dts.add(bar.datetime)
-                    self.history_data[(bar.datetime, vt_symbol)] = bar
-
-                data_count = len(data)
+            data_count = len(data)
 
             self.output(f"{vt_symbol}历史数据加载完成，数据量：{data_count}")
 

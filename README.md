@@ -21,6 +21,8 @@ base: 1.0.4; 1.0.5/1.0.6 ignored
 
 PortfolioStrategy: 54ff2ae 1.0.7+
 
+PaperAccount: 1.0.3 
+
 
 ## 已知的问题：
    - ctp 录制时，每个交易小结收盘的最后1bar 可能来自非交易时间，例如DCE 部分合约的最后1tick 可能来自15：09 等，可能造成最后1min bar 数据的不准确；也可能由于最后1tick 的遗失导致最后1bar的缺失

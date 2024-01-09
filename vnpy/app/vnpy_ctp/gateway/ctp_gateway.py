@@ -337,6 +337,14 @@ class CtpMdApi(MdApi):
         local_dt: datetime = datetime.now()
         # local_dt: datetime = local_dt.replace(tzinfo=CHINA_TZ)
 
+        # 过滤较老的tick，发生频率较高
+        if symbol in self.last_tick_time and dt < self.last_tick_time[symbol]:
+            return
+
+        # 过滤与本机时间差距较大的tick，发生频率一般
+        if abs(dt - local_dt) > timedelta(minutes=1):
+            return
+
         # 过滤非交易时间的tick
         tick_time = dt.time()
         if not (
@@ -346,14 +354,6 @@ class CtpMdApi(MdApi):
             return
 
         if contract.exchange in {Exchange.SHFE, Exchange.DCE, Exchange.CZCE} and REST_START <= tick_time < REST_END:
-            return
-
-        # 过滤与本机时间差距较大的tick，发生频率一般
-        if abs(dt - local_dt) > timedelta(minutes=1):
-            return
-
-        # 过滤较老的tick，发生频率较高
-        if symbol in self.last_tick_time and dt < self.last_tick_time[symbol]:
             return
 
         self.last_tick_time[symbol] = dt

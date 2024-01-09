@@ -3,6 +3,7 @@ from datetime import datetime, time
 
 import numpy as np
 
+from vnpy.app.vnpy_portfoliostrategy.base import EngineType
 from vnpy.trader.utility import ArrayManager
 from vnpy.trader.object import TickData, BarData
 from vnpy.trader.constant import Direction, Interval
@@ -30,9 +31,11 @@ class STMStrategy(StrategyTemplate):
     parameters = [
         "capital",
         "stm_window",
+
         "qtl_long_window",
         "enter_long_qtl",
         "exit_long_qtl",
+
         "qtl_short_window",
         "enter_short_qtl",
         "exit_short_qtl"
@@ -71,7 +74,7 @@ class STMStrategy(StrategyTemplate):
         else:
             raise NotImplementedError
 
-        self.load_bars(days)
+        self.load_bars(days, self.interval)
 
     def on_start(self) -> None:
         """策略启动回调"""
@@ -136,7 +139,12 @@ class STMStrategy(StrategyTemplate):
                 elif self.stm_data[vt_symbol] > stm.iloc[-self.qtl_short_window:].quantile(self.exit_short_qtl):
                     self.set_target(vt_symbol, 0)
 
-        self.rebalance_portfolio(bars)
+        engine_type = self.get_engine_type()
+        if engine_type != EngineType.BACKTESTING:
+            self.save_target_position()
+
+        if engine_type != EngineType.SIGNAL:
+            self.rebalance_portfolio(bars)
 
         self.put_event()
 

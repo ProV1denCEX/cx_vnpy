@@ -46,10 +46,10 @@ from .base import (
 from .template import StrategyTemplate
 
 
-class StrategyEngine(BaseEngine):
+class SignalEngine(BaseEngine):
     """组合策略引擎"""
 
-    engine_type: EngineType = EngineType.LIVE
+    engine_type: EngineType = EngineType.SIGNAL
 
     setting_filename: str = "portfolio_strategy_setting.json"
     data_filename: str = "portfolio_strategy_data.json"
@@ -88,8 +88,6 @@ class StrategyEngine(BaseEngine):
     def register_event(self) -> None:
         """注册事件引擎"""
         self.event_engine.register(EVENT_TICK, self.process_tick_event)
-        self.event_engine.register(EVENT_ORDER, self.process_order_event)
-        self.event_engine.register(EVENT_TRADE, self.process_trade_event)
 
     def process_tick_event(self, event: Event) -> None:
         """行情数据推送"""
@@ -103,32 +101,6 @@ class StrategyEngine(BaseEngine):
             if strategy.inited:
                 self.call_strategy_func(strategy, strategy.on_tick, tick)
 
-    def process_order_event(self, event: Event) -> None:
-        """委托数据推送"""
-        order: OrderData = event.data
-
-        strategy: Optional[StrategyTemplate] = self.orderid_strategy_map.get(order.vt_orderid, None)
-        if not strategy:
-            return
-
-        self.call_strategy_func(strategy, strategy.update_order, order)
-
-    def process_trade_event(self, event: Event) -> None:
-        """成交数据推送"""
-        trade: TradeData = event.data
-
-        # 过滤重复的成交推送
-        if trade.vt_tradeid in self.vt_tradeids:
-            return
-        self.vt_tradeids.add(trade.vt_tradeid)
-
-        # 推送给策略
-        strategy: Optional[StrategyTemplate] = self.orderid_strategy_map.get(trade.vt_orderid, None)
-        if not strategy:
-            return
-
-        self.call_strategy_func(strategy, strategy.update_trade, trade)
-
     def send_order(
         self,
         strategy: StrategyTemplate,
@@ -141,58 +113,13 @@ class StrategyEngine(BaseEngine):
         net: bool,
     ) -> list:
         """发送委托"""
-        contract: Optional[ContractData] = self.main_engine.get_contract(vt_symbol)
-        if not contract:
-            self.write_log(f"委托失败，找不到合约：{vt_symbol}", strategy)
-            return ""
+        self.write_log(f"委托失败，信号模式下，引擎不会处理任何订单与交易.", strategy)
 
-        price: float = round_to(price, contract.pricetick)
-        volume: float = round_to(volume, contract.min_volume)
-
-        original_req: OrderRequest = OrderRequest(
-            symbol=contract.symbol,
-            exchange=contract.exchange,
-            direction=direction,
-            offset=offset,
-            type=OrderType.LIMIT,
-            price=price,
-            volume=volume,
-            reference=f"{APP_NAME}_{strategy.strategy_name}"
-        )
-
-        req_list: List[OrderRequest] = self.main_engine.convert_order_request(
-            original_req,
-            contract.gateway_name,
-            lock,
-            net
-        )
-
-        vt_orderids: list = []
-
-        for req in req_list:
-            vt_orderid: str = self.main_engine.send_order(
-                req, contract.gateway_name)
-
-            if not vt_orderid:
-                continue
-
-            vt_orderids.append(vt_orderid)
-
-            self.main_engine.update_order_request(req, vt_orderid, contract.gateway_name)
-
-            self.orderid_strategy_map[vt_orderid] = strategy
-
-        return vt_orderids
+        return []
 
     def cancel_order(self, strategy: StrategyTemplate, vt_orderid: str) -> None:
         """委托撤单"""
-        order: Optional[OrderData] = self.main_engine.get_order(vt_orderid)
-        if not order:
-            self.write_log(f"撤单失败，找不到委托{vt_orderid}", strategy)
-            return
-
-        req: CancelRequest = order.create_cancel_request()
-        self.main_engine.cancel_order(req, order.gateway_name)
+        self.write_log(f"撤单失败，信号模式下，引擎不会处理任何订单与交易.", strategy)
 
     def get_engine_type(self) -> EngineType:
         """获取引擎类型"""

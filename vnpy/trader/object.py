@@ -6,9 +6,11 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from logging import INFO
 
+from Pandora.constant import SymbolSuffix
 from .constant import Direction, Exchange, Interval, Offset, Status, Product, OptionType, OrderType
 
-ACTIVE_STATUSES = set([Status.SUBMITTING, Status.NOTTRADED, Status.PARTTRADED])
+ACTIVE_STATUSES = {Status.SUBMITTING, Status.NOTTRADED, Status.PARTTRADED}
+SPECIAL_DIGIT = {SymbolSuffix.MC, SymbolSuffix.MNC}
 
 
 @dataclass
@@ -265,12 +267,15 @@ class ContractData(BaseData):
             contract = ''.join(i for i in self.symbol if i.isalpha())
             digits = ''.join(i for i in self.symbol if i.isnumeric())
 
+            if self.exchange == Exchange.CZCE and len(digits) == 4:
+                self.symbol = contract.upper() + digits[-3:]
+
+            if digits in SPECIAL_DIGIT:
+                return
+
             if len(digits) == 3:
                 year_10 = self.expire_date.year // 10 % 10
                 digits = str(year_10) + digits
-
-            elif self.exchange == Exchange.CZCE and len(digits) == 4:
-                self.symbol = contract.upper() + digits[-3:]
 
             self.name = contract.upper() + digits
 

@@ -5,7 +5,7 @@ from vnpy.trader.utility import BarGenerator, extract_vt_symbol
 from vnpy.trader.object import TickData, BarData
 from vnpy.trader.constant import Direction
 
-from vnpy_portfoliostrategy import StrategyTemplate, StrategyEngine
+from vnpy.app.vnpy_portfoliostrategy import StrategyTemplate, StrategyEngine
 
 
 class PcpArbitrageStrategy(StrategyTemplate):

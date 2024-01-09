@@ -6,6 +6,7 @@ APP_NAME = "PortfolioStrategy"
 
 class EngineType(Enum):
     LIVE = "实盘"
+    SIGNAL = "信号"
     BACKTESTING = "回测"
 
 

@@ -7,7 +7,7 @@ from vnpy.trader.utility import BarGenerator
 from vnpy.trader.object import TickData, BarData
 from vnpy.trader.constant import Direction
 
-from vnpy_portfoliostrategy import StrategyTemplate, StrategyEngine
+from vnpy.app.vnpy_portfoliostrategy import StrategyTemplate, StrategyEngine
 
 
 class PairTradingStrategy(StrategyTemplate):

@@ -13,6 +13,7 @@ from vnpy.trader.engine import MainEngine
 from vnpy.app.vnpy_ctp import CtpGateway
 from vnpy.app.vnpy_datarecorder import DataRecorderApp
 from vnpy.app.vnpy_datarecorder.engine import EVENT_RECORDER_LOG
+from vnpy.app.vnpy_mcmanager.engine import MainContractManager
 from vnpy.trader.utility import load_json
 
 SETTINGS["log.active"] = True
@@ -70,17 +71,19 @@ def run_child():
     event_engine.register(EVENT_RECORDER_LOG, log_engine.process_log_event)
     main_engine.write_log("注册日志事件监听")
 
-    ctp_setting = load_json(f"connect_{gateway.gateway_name.lower()}.json")
+    # ctp_setting = load_json(f"connect_{gateway.gateway_name.lower()}.json")
+
+    mc_manager = main_engine.add_engine(MainContractManager)
 
     main_engine.connect(CTP_SETTING, "CTP")
     main_engine.write_log("连接CTP接口")
 
     sleep(10)
 
-    contracts = main_engine.get_all_contracts()
-
     while True:
-        if contracts:
+        contracts = main_engine.get_all_contracts()
+
+        if len(contracts) > len(mc_manager.get_main_contracts()):
             for i in contracts:
                 if i.product == Product.FUTURES:
                     recorder.add_tick_recording(i.vt_symbol)

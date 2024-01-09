@@ -23,6 +23,8 @@ PortfolioStrategy: 54ff2ae 1.0.7+
 
 PaperAccount: 1.0.3 
 
+RiskManager: 1.0.4
+
 
 ## 已知的问题：
    - ctp 录制时，每个交易小结收盘的最后1bar 可能来自非交易时间，例如DCE 部分合约的最后1tick 可能来自15：09 等，可能造成最后1min bar 数据的不准确；也可能由于最后1tick 的遗失导致最后1bar的缺失
@@ -36,8 +38,9 @@ PaperAccount: 1.0.3
 考虑实际意义，重新规划路径顺序
 
 - [x] main build / record ———— 先采用移植autobatch 的方案
-- [ ] validate main quote by notebook backtest (use no night trading contracts)
-- [ ] backtester
+- [x] validate main quote by notebook backtest (use no night trading contracts)
+- [x] backtester
+- [ ] mc manager
 - [ ] 1 vs many
 - [ ] paper trade
 
@@ -55,7 +58,8 @@ PaperAccount: 1.0.3
 2. 对于ctp接收，需要添加对 临近收盘时tick 的处理：缓存关闭bar、强制关闭bar —— 日中的休市会不会也有类似的问题？
 
 - [ ] daily bar generator
-- [ ] tick filter 重构 https://www.vnpy.com/forum/topic/30601-che-di-jie-jue-tickshu-ju-de-guo-lu-wen-ti?page=1
+- [ ] tick filter/manager 重构 https://www.vnpy.com/forum/topic/30601-che-di-jie-jue-tickshu-ju-de-guo-lu-wen-ti?page=1
+> 本着相同方法尽量只patch一次的思想，那次patch 被MainContractManager 占据，因此，tick filter 的工作暂时放在gateway 本身方法里
 - [ ] OnRtnInstrumentStatus
 - [ ] 郑商所 0.5 tick 的问题
 

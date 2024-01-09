@@ -9,6 +9,7 @@ import numpy as np
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from pandas import DataFrame
+from tqdm.auto import tqdm
 
 from vnpy.trader.constant import Direction, Offset, Interval, Status
 from vnpy.trader.database import get_database, BaseDatabase
@@ -193,13 +194,16 @@ class BacktestingEngine:
         self.output("开始回放历史数据")
 
         # 使用剩余历史数据进行策略回测
-        for dt in dts[ix:]:
-            try:
-                self.new_bars(dt)
-            except Exception:
-                self.output("触发异常，回测终止")
-                self.output(traceback.format_exc())
-                return
+        with tqdm(total=len(dts[ix:]), desc="回放历史数据") as pbar:
+            for dt in dts[ix:]:
+                try:
+                    self.new_bars(dt)
+                except Exception:
+                    self.output("触发异常，回测终止")
+                    self.output(traceback.format_exc())
+                    return
+
+                pbar.update()
 
         self.output("历史数据回放结束")
 

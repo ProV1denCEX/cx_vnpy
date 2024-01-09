@@ -7,11 +7,12 @@ from vnpy.event import EventEngine
 from vnpy.trader.constant import Product, Exchange
 from vnpy.trader.engine import MainEngine
 from vnpy.app.vnpy_datamanager import ManagerEngine
+from vnpy.app.vnpy_tinysoft.tinysoft_datafeed import ALL_SYMBOL, LISTING_SYMBOL
 
 from Pandora.helper import TDays
 
 
-def run(start_date, end_date, output=print):
+def run(start_date, end_date, output=print, symbol_set=LISTING_SYMBOL):
     """"""
     event_engine = EventEngine()
 
@@ -19,7 +20,7 @@ def run(start_date, end_date, output=print):
 
     data_manager = ManagerEngine(main_engine, event_engine)
 
-    count = data_manager.download_contract_data(Product.FUTURES, True)
+    count = data_manager.download_contract_data(Product.FUTURES, symbol_set == LISTING_SYMBOL)
     output(f"contract download {count}")
 
     periods = TDays.period(start_date, end_date, None)
@@ -36,7 +37,7 @@ def run(start_date, end_date, output=print):
             output(f"delete bar from {start} to {end} {count}")
 
             bars = data_manager.download_bar_data(
-                "listing_only",
+                symbol_set,
                 Exchange.LOCAL,
                 Product.FUTURES,
                 "1m",
@@ -45,10 +46,10 @@ def run(start_date, end_date, output=print):
                 output=output,
                 return_data=True
             )
-            output(f"listing_only download 1m from {start} to {end} {len(bars)}")
+            output(f"{symbol_set} download 1m from {start} to {end} {len(bars)}")
 
             count = data_manager.download_bar_data(
-                "listing_only",
+                symbol_set,
                 Exchange.LOCAL,
                 Product.FUTURES,
                 "d",
@@ -56,7 +57,7 @@ def run(start_date, end_date, output=print):
                 end=end,
                 output=output
             )
-            output(f"listing_only download daily from {start} to {end} {count}")
+            output(f"{symbol_set} download daily from {start} to {end} {count}")
 
             bars_to_build = {}
             for bar in bars:
@@ -72,7 +73,7 @@ def run(start_date, end_date, output=print):
                 count = data_manager.rebuild_bar_data_from_data(bars_, "recorder")
                 total += count
 
-            output(f"listing_only rebuild recorder from {start} to {end} {total}")
+            output(f"{symbol_set} rebuild recorder from {start} to {end} {total}")
             pbar.update()
 
     main_engine.close()
@@ -81,5 +82,9 @@ def run(start_date, end_date, output=print):
 if __name__ == "__main__":
     start, end, _ = TDays.interval(end_hour=0)
 
+    # start = "2023-12-21"
+    # start = end = "2022-03-10"
+
     # start = end = TDays.get_tday(end_hour=0)
+    # run(start, end, symbol_set=ALL_SYMBOL)
     run(start, end)

@@ -126,7 +126,7 @@ def create_contract_future_table_script(database: str, table_name: str = "contra
         tickoverview,
         "{table_name}",
         partitionColumns=["expire_date"],
-        sortColumns=["symbol", "exchange", "expire_date"],
+        sortColumns=["symbol", "exchange", "list_date"],
         keepDuplicates=LAST)
     """
 
@@ -179,6 +179,4 @@ SCRIPTS_FUNC = {
 
     'contract_futures': create_contract_future_table_script,
     'contract_options': create_contract_option_table_script,
-
-    'trade_time': create_trade_time_table_script
 }

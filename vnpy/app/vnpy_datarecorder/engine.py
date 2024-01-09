@@ -229,7 +229,7 @@ class RecorderEngine(BaseEngine):
         contract: ContractData = event.data
         vt_symbol: str = contract.vt_symbol
 
-        if (vt_symbol in self.tick_recordings or vt_symbol in self.bar_recordings):
+        if vt_symbol in self.tick_recordings or vt_symbol in self.bar_recordings:
             self.subscribe(contract)
 
     def process_spread_event(self, event: Event) -> None:

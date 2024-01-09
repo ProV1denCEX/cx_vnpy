@@ -30,8 +30,8 @@ SETTINGS: Dict[str, Any] = {
 
     "database.timezone": get_localzone_name(),
     "database.name": "dolphindb",
-    "database.database": "CTA_TESTTRADE",
-    "database.host": "192.168.50.238",
+    "database.database": "CTA_REALTRADE",
+    "database.host": "127.0.0.1",
     "database.port": 8848,
     "database.user": "admin",
     "database.password": "zaq1@WSXcde3",
@@ -41,8 +41,6 @@ SETTINGS: Dict[str, Any] = {
 
         'contract_futures': 'contract_futures',
         'contract_options': 'contract_options',
-
-        'trade_time': 'trade_time',
     }
 }
 

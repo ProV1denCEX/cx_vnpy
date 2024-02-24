@@ -80,11 +80,14 @@ def run(start_date, end_date, output=print, symbol_set=LISTING_SYMBOL):
 
 
 if __name__ == "__main__":
-    start, end, _ = TDays.interval(end_hour=0)
-
-    # start = "2023-12-21"
-    # start = end = "2022-03-10"
+    start = end = "2024-01-16"
+    # start, end, _ = TDays.interval(end_hour=0)
 
     # start = end = TDays.get_tday(end_hour=0)
-    # run(start, end, symbol_set=ALL_SYMBOL)
     run(start, end)
+
+    # start = "2023-12-10"
+    # end = "2024-01-17"
+    # run(start, end, symbol_set=ALL_SYMBOL)
+
+

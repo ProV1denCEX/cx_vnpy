@@ -17,6 +17,8 @@ from vnpy.trader.setting import SETTINGS
 
 from .dolphindb_script import SCRIPTS_FUNC
 
+from Pandora.helper import DateFmt
+
 
 class DolphindbDatabase(BaseDatabase):
     """DolphinDB数据库接口"""
@@ -217,13 +219,11 @@ class DolphindbDatabase(BaseDatabase):
                 query = query.where(f'symbol="{symbol}"')
 
             if start:
-                start = np.datetime64(start)
-                start: str = str(start).replace("-", ".")
+                start = start.strftime(DateFmt.dolphin_datetime.value)
                 query = query.where(f'expire_date>={start}')
 
             if end:
-                end = np.datetime64(end)
-                end: str = str(end).replace("-", ".")
+                end = end.strftime(DateFmt.dolphin_datetime.value)
                 query = query.where(f'list_date<={end}')
 
             df: pd.DataFrame = query.toDF()
@@ -258,14 +258,12 @@ class DolphindbDatabase(BaseDatabase):
                 query = query.where(f'symbol="{symbol}"')
 
             if start:
-                start = np.datetime64(start)
-                start: str = str(start).replace("-", ".")
-                query = query.where(f'datetime>={start}')
+                start = start.strftime(DateFmt.dolphin_datetime.value)
+                query = query.where(f'datetime >= {start}')
 
             if end:
-                end = np.datetime64(end)
-                end: str = str(end).replace("-", ".")
-                query = query.where(f'datetime<={end}')
+                end = end.strftime(DateFmt.dolphin_datetime.value)
+                query = query.where(f'datetime <= {end}')
 
             df: pd.DataFrame = query.toDF()
 
@@ -313,11 +311,8 @@ class DolphindbDatabase(BaseDatabase):
     ) -> list[BarData]:
         """读取K线数据"""
         # 转换时间格式
-        start = np.datetime64(start)
-        start: str = str(start).replace("-", ".")
-
-        end = np.datetime64(end)
-        end: str = str(end).replace("-", ".")
+        start = start.strftime(DateFmt.dolphin_datetime.value)
+        end = end.strftime(DateFmt.dolphin_datetime.value)
 
         table: ddb.Table = self.session.loadTable(tableName=self.table_name["bar"], dbPath=self.db_path)
 
@@ -368,11 +363,8 @@ class DolphindbDatabase(BaseDatabase):
     ) -> list[TickData]:
         """读取Tick数据"""
         # 转换时间格式
-        start = np.datetime64(start)
-        start: str = str(start).replace("-", ".")
-
-        end = np.datetime64(end)
-        end: str = str(end).replace("-", ".")
+        start = start.strftime(DateFmt.dolphin_datetime.value)
+        end = end.strftime(DateFmt.dolphin_datetime.value)
 
         # 读取数据DataFrame
         table: ddb.Table = self.session.loadTable(tableName=self.table_name["tick"], dbPath=self.db_path)
@@ -463,15 +455,11 @@ class DolphindbDatabase(BaseDatabase):
             query = query.where(f'interval="{interval.value}"')
 
         if start:
-            start = np.datetime64(start)
-            start: str = str(start).replace("-", ".")
-
+            start = start.strftime(DateFmt.dolphin_datetime.value)
             query = query.where(f'datetime >= {start}')
 
         if end:
-            end = np.datetime64(end)
-            end: str = str(end).replace("-", ".")
-
+            end = end.strftime(DateFmt.dolphin_datetime.value)
             query = query.where(f'datetime <= {end}')
 
         df: pd.DataFrame = query.toDF()

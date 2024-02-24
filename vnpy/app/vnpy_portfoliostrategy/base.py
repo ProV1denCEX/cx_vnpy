@@ -5,9 +5,9 @@ APP_NAME = "PortfolioStrategy"
 
 
 class EngineType(Enum):
-    LIVE = "实盘"
-    SIGNAL = "信号"
-    BACKTESTING = "回测"
+    LIVE = "Live"
+    SIGNAL = "Signal"
+    BACKTESTING = "Backtest"
 
 
 EVENT_PORTFOLIO_LOG = "ePortfolioLog"

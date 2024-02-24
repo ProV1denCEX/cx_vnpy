@@ -2,6 +2,7 @@ from typing import List, Dict
 from datetime import datetime, time
 
 import numpy as np
+import pandas as pd
 
 from vnpy.app.vnpy_portfoliostrategy.base import EngineType
 from vnpy.trader.utility import ArrayManager
@@ -64,6 +65,9 @@ class STMStrategy(StrategyTemplate):
         self.pbg = PortfolioBarGenerator(None, Interval.to_window(self.interval), self.on_bars)
         self.pbg.on_bars = self.pbg.update_bars
 
+        if self.get_engine_type() == EngineType.SIGNAL:
+            self.pos_data = self.target_data
+
     def on_init(self) -> None:
         """策略初始化回调"""
         self.write_log("策略初始化")
@@ -80,8 +84,13 @@ class STMStrategy(StrategyTemplate):
         """策略启动回调"""
         self.write_log("策略启动")
 
+        self.update_portfolio()
+
     def on_stop(self) -> None:
         """策略停止回调"""
+        self.update_portfolio()
+        self.save_strategy_cache()
+
         self.write_log("策略停止")
 
     def on_tick(self, tick: TickData) -> None:
@@ -90,9 +99,14 @@ class STMStrategy(StrategyTemplate):
 
     def on_bars(self, bars: Dict[str, BarData]) -> None:
         """K线切片回调"""
-        # 更新K线计算RSI数值
+        super().on_bars(bars)
+
         for vt_symbol, bar in bars.items():
-            if bar.datetime.time() < time(9) or bar.datetime.time() >= time(23):
+            if (
+                    bar.datetime.time() < time(9)  # 滤掉早盘集合竞价
+                    or bar.datetime.time() >= time(23)  # 滤掉深夜交易
+                    # or (time(21) > bar.datetime.time() >= time(20, 45))  # 滤掉夜盘集合竞价
+            ):
                 return
 
             am: ArrayManager = self.ams[vt_symbol]
@@ -101,8 +115,16 @@ class STMStrategy(StrategyTemplate):
         if not self.trading:
             return
 
-        for vt_symbol, bar in bars.items():
-            am: ArrayManager = self.ams[vt_symbol]
+        self.update_portfolio()
+
+        engine_type = self.get_engine_type()
+        if engine_type != EngineType.SIGNAL:
+            self.rebalance_portfolio(bars)
+
+        self.put_event()
+
+    def update_portfolio(self):
+        for vt_symbol, am in self.ams.items():
             if not am.inited:
                 continue
 
@@ -141,12 +163,7 @@ class STMStrategy(StrategyTemplate):
 
         engine_type = self.get_engine_type()
         if engine_type != EngineType.BACKTESTING:
-            self.save_target_position()
-
-        if engine_type != EngineType.SIGNAL:
-            self.rebalance_portfolio(bars)
-
-        self.put_event()
+            self.save_strategy_portfolio()
 
     # def calculate_price(self, vt_symbol: str, direction: Direction, reference: float) -> float:
     #     """计算调仓委托价格（支持按需重载实现）"""
@@ -156,6 +173,22 @@ class STMStrategy(StrategyTemplate):
     #         price: float = reference - self.get_pricetick(vt_symbol) * 0
     #
     #     return price
+
+    def save_strategy_cache(
+            self,
+    ):
+        cache = {}
+        for vt_symbol, am in self.ams.items():
+            if not am.inited:
+                continue
+
+            stm = am.stm(self.stm_window, array=True)
+            stm.index = am.datetime_array
+
+            cache[vt_symbol] = stm
+
+        cache = pd.DataFrame(cache)
+        cache.to_csv(self.strategy_name + f"_cache_{datetime.now().strftime('%Y%m%d%H%M%S')}.csv")
 
     def get_target_size_by_std_minus(self, vt_symbol: str, param=500, day_count=23, n=3, std_min=0.1, std_max=0.45) -> int:
         am = self.ams[vt_symbol]

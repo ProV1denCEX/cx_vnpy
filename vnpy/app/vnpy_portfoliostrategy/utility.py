@@ -34,10 +34,8 @@ class PortfolioBarGenerator:
 
     def update_tick(self, tick: TickData) -> None:
         """更新行情切片数据"""
-        if not tick.last_price:
-            return
-
-        if self.last_dt and self.last_dt.minute != tick.datetime.minute:
+        # 用localtime 保证严格正推，且仅推一次bar slice
+        if self.last_dt and self.last_dt.minute != tick.localtime.minute:
             for bar in self.bars.values():
                 bar.datetime = bar.datetime.replace(second=0, microsecond=0)
 
@@ -50,7 +48,7 @@ class PortfolioBarGenerator:
                 symbol=tick.symbol,
                 exchange=tick.exchange,
                 interval=Interval.MINUTE,
-                datetime=tick.datetime,
+                datetime=tick.datetime,  # TODO: 1. 检查生成的bar 会不会时间轴回溯；是否需要换成localtime
                 gateway_name=tick.gateway_name,
                 open_price=tick.last_price,
                 high_price=tick.last_price,
@@ -72,7 +70,7 @@ class PortfolioBarGenerator:
             bar.turnover += max(tick.turnover - last_tick.turnover, 0)
 
         self.last_ticks[tick.vt_symbol] = tick
-        self.last_dt = tick.datetime
+        self.last_dt = tick.localtime
 
     def update_bars(self, bars: Dict[str, BarData]) -> None:
         """更新一分钟K线"""

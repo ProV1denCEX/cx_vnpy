@@ -550,21 +550,6 @@ class BacktestingEngine:
                 self.bars[vt_symbol] = bar
                 # 缓存K线数据以供strategy.on_bars更新
                 bars[vt_symbol] = bar
-            # 如果获取不到，但self.bars字典中已有合约数据缓存, 使用之前的数据填充
-            elif vt_symbol in self.bars:
-                old_bar: BarData = self.bars[vt_symbol]
-
-                bar: BarData = BarData(
-                    symbol=old_bar.symbol,
-                    exchange=old_bar.exchange,
-                    datetime=dt,
-                    open_price=old_bar.close_price,
-                    high_price=old_bar.close_price,
-                    low_price=old_bar.close_price,
-                    close_price=old_bar.close_price,
-                    gateway_name=old_bar.gateway_name
-                )
-                self.bars[vt_symbol] = bar
 
         self.cross_limit_order()
         self.strategy.on_bars(bars)
@@ -697,9 +682,10 @@ class BacktestingEngine:
         """发送邮件"""
         pass
 
-    def sync_strategy_data(self, strategy: StrategyTemplate) -> None:
+    def sync_strategy_data(self, strategy: StrategyTemplate = None) -> None:
         """保存策略数据到文件"""
-        pass
+        strategy = strategy or self.strategy
+        strategy.save_strategy_portfolio()
 
     def get_engine_type(self) -> EngineType:
         """获取引擎类型"""

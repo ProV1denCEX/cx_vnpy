@@ -8,6 +8,7 @@ from typing import Dict, List, Set, Tuple, Type, Any, Callable, Optional
 from datetime import datetime, timedelta
 from concurrent.futures import ThreadPoolExecutor
 
+from Pandora.helper import TDays
 from vnpy.event import Event, EventEngine
 from vnpy.trader.engine import BaseEngine, MainEngine
 from vnpy.trader.object import (
@@ -73,13 +74,19 @@ class SignalEngine(BaseEngine):
         # 数据库和数据服务
         self.database: BaseDatabase = get_database()
 
+        self.trade_date = TDays.get_tday(end_hour=20)
+
     def init_engine(self) -> None:
         """初始化引擎"""
+        self.load_trade_dates()
         self.load_strategy_class()
         self.load_strategy_setting()
         self.load_strategy_data()
         self.register_event()
         self.write_log("组合策略引擎初始化成功")
+
+    def load_trade_dates(self):
+        self.trade_date = TDays.get_tday(end_hour=20)
 
     def close(self) -> None:
         """关闭"""
@@ -125,6 +132,10 @@ class SignalEngine(BaseEngine):
         """获取引擎类型"""
         return self.engine_type
 
+    def get_contract(self, strategy: StrategyTemplate, vt_symbol: str) -> Optional[ContractData]:
+        """获取合约价格跳动"""
+        return self.main_engine.get_contract(vt_symbol)
+
     def get_pricetick(self, strategy: StrategyTemplate, vt_symbol: str) -> float:
         """获取合约价格跳动"""
         contract: Optional[ContractData] = self.main_engine.get_contract(vt_symbol)
@@ -160,29 +171,14 @@ class SignalEngine(BaseEngine):
         dts: list = list(dts)
         dts.sort()
 
-        bars: dict = {}
-
         for dt in dts:
+            bars: dict = {}
+
             for vt_symbol in vt_symbols:
                 bar: Optional[BarData] = history_data.get((dt, vt_symbol), None)
 
                 # 如果获取到合约指定时间的历史数据，缓存进bars字典
                 if bar:
-                    bars[vt_symbol] = bar
-                # 如果获取不到，但bars字典中已有合约数据缓存, 使用之前的数据填充
-                elif vt_symbol in bars:
-                    old_bar: BarData = bars[vt_symbol]
-
-                    bar = BarData(
-                        symbol=old_bar.symbol,
-                        exchange=old_bar.exchange,
-                        datetime=dt,
-                        open_price=old_bar.close_price,
-                        high_price=old_bar.close_price,
-                        low_price=old_bar.close_price,
-                        close_price=old_bar.close_price,
-                        gateway_name=old_bar.gateway_name
-                    )
                     bars[vt_symbol] = bar
 
             self.call_strategy_func(strategy, strategy.on_bars, bars)

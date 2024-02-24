@@ -1,13 +1,21 @@
+import datetime as dt
+import os
+import socket
+import pandas as pd
+
 from abc import ABC
 from copy import copy
 from typing import Dict, Set, List, TYPE_CHECKING, Optional
 from collections import defaultdict
 
 from vnpy.trader.constant import Interval, Direction, Offset
-from vnpy.trader.object import BarData, TickData, OrderData, TradeData
+from vnpy.trader.object import BarData, TickData, OrderData, TradeData, ContractData
 from vnpy.trader.utility import virtual
 
+from Pandora.data_manager import get_api
+
 from .base import EngineType
+from ...trader.setting import SETTINGS
 
 if TYPE_CHECKING:
     from .engine import StrategyEngine
@@ -21,11 +29,11 @@ class StrategyTemplate(ABC):
     variables: list = []
 
     def __init__(
-        self,
-        strategy_engine: "StrategyEngine",
-        strategy_name: str,
-        vt_symbols: List[str],
-        setting: dict
+            self,
+            strategy_engine: "StrategyEngine",
+            strategy_name: str,
+            vt_symbols: List[str],
+            setting: dict
     ) -> None:
         """构造函数"""
         self.strategy_engine: "StrategyEngine" = strategy_engine
@@ -37,8 +45,10 @@ class StrategyTemplate(ABC):
         self.trading: bool = False
 
         # 持仓数据字典
-        self.pos_data: Dict[str, int] = defaultdict(int)        # 实际持仓
-        self.target_data: Dict[str, int] = defaultdict(int)     # 目标持仓
+        self.pos_data: Dict[str, int] = defaultdict(int)  # 实际持仓
+        self.target_data: Dict[str, int] = defaultdict(int)  # 目标持仓
+
+        self.last_prices: Dict[str, float] = defaultdict(float)  # 最新价格
 
         # 委托缓存容器
         self.orders: Dict[str, OrderData] = {}
@@ -52,6 +62,7 @@ class StrategyTemplate(ABC):
         self.variables.insert(3, "target_data")
 
         # 设置策略参数
+        self.setting = setting
         self.update_setting(setting)
 
     def update_setting(self, setting: dict) -> None:
@@ -112,12 +123,13 @@ class StrategyTemplate(ABC):
     @virtual
     def on_tick(self, tick: TickData) -> None:
         """行情推送回调"""
-        pass
+        self.last_prices[tick.vt_symbol] = tick.last_price
 
     @virtual
     def on_bars(self, bars: Dict[str, BarData]) -> None:
         """K线切片回调"""
-        pass
+        for vt_symbol, bar in bars.items():
+            self.last_prices[bar.vt_symbol] = bar.close_price
 
     def update_trade(self, trade: TradeData) -> None:
         """成交数据更新"""
@@ -150,14 +162,14 @@ class StrategyTemplate(ABC):
         return self.send_order(vt_symbol, Direction.LONG, Offset.CLOSE, price, volume, lock, net)
 
     def send_order(
-        self,
-        vt_symbol: str,
-        direction: Direction,
-        offset: Offset,
-        price: float,
-        volume: float,
-        lock: bool = False,
-        net: bool = False,
+            self,
+            vt_symbol: str,
+            direction: Direction,
+            offset: Offset,
+            price: float,
+            volume: float,
+            lock: bool = False,
+            net: bool = False,
     ) -> List[str]:
         """发送委托"""
         if self.trading:
@@ -258,10 +270,10 @@ class StrategyTemplate(ABC):
 
     @virtual
     def calculate_price(
-        self,
-        vt_symbol: str,
-        direction: Direction,
-        reference: float
+            self,
+            vt_symbol: str,
+            direction: Direction,
+            reference: float
     ) -> float:
         """计算调仓委托价格（支持按需重载实现）"""
         return reference
@@ -281,6 +293,14 @@ class StrategyTemplate(ABC):
     def get_engine_type(self) -> EngineType:
         """查询引擎类型"""
         return self.strategy_engine.get_engine_type()
+
+    def get_contract(self, vt_symbol: str) -> Optional[ContractData]:
+        """查询合约最小价格跳动"""
+        return self.strategy_engine.get_contract(self, vt_symbol)
+
+    def get_tick(self, vt_symbol: str) -> Optional[TickData]:
+        """查询合约最小价格跳动"""
+        return self.strategy_engine.get_tick(self, vt_symbol)
 
     def get_pricetick(self, vt_symbol: str) -> float:
         """查询合约最小价格跳动"""
@@ -308,3 +328,70 @@ class StrategyTemplate(ABC):
         """同步策略状态数据到文件"""
         if self.trading:
             self.strategy_engine.sync_strategy_data(self)
+
+    def save_strategy_portfolio(
+            self,
+            account_name: str = SETTINGS["account.name"],
+            investor_id: str = SETTINGS["account.investorid"],
+    ):
+        _current_now = dt.datetime.now()
+        current_time = _current_now.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
+        current_date = str(_current_now.date())
+
+        cd = os.getcwd()
+        machine_name = socket.gethostname()
+        mode = self.get_engine_type().value
+
+        portfolios = []
+        for vt_symbol, pos in self.pos_data.items():
+            contract = self.get_contract(vt_symbol)
+            size = contract.size
+            last_price = self.last_prices.get(vt_symbol, 0)
+            mv = pos * size * last_price
+
+            portfolio = {
+                "Date": current_date,
+                "TradeDate": self.trade_date,
+                "UpdateTime": current_time,
+                "FundName": account_name,
+                "InvestorID": investor_id,
+                "StrategyName": self.strategy_name,
+                "Mode": mode,
+
+                "Symbol": contract.symbol,
+                "Ticker": contract.name,
+
+                "Direction": Direction.LONG.value if pos > 0 else Direction.SHORT.value,
+                "Qty": abs(pos),
+                "Value": abs(mv),
+                "PortfolioValue": mv,
+                "PnL": 0,
+
+                "EntryTime": current_time,
+                "MachineName": machine_name,
+                "Folder": cd,
+            }
+
+            portfolios.append(portfolio)
+
+        portfolios = pd.DataFrame(portfolios)
+
+        api = get_api(real_trade=False)
+        api.save_strategy_position(portfolios, False)
+
+    def load_strategy_portfolio(
+            self,
+            account_name: str = SETTINGS["account.name"],
+            investor_id: str = SETTINGS["account.investorid"],
+    ):
+        mode = self.get_engine_type().value
+
+        api = get_api(real_trade=False)
+        portfolio = api.get_strategy_portfolio(account_name, investor_id, self.strategy_name, mode)
+
+        portfolio.groupby(['Symbol'])
+
+
+    @property
+    def trade_date(self):
+        return self.strategy_engine.trade_date

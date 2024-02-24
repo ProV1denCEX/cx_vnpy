@@ -41,7 +41,10 @@ SETTINGS: Dict[str, Any] = {
 
         'contract_futures': 'contract_futures',
         'contract_options': 'contract_options',
-    }
+    },
+
+    "account.name": "",
+    "account.investorid": "",
 }
 
 # Load global setting from json file.

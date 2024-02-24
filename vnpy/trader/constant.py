@@ -9,9 +9,9 @@ class Direction(Enum):
     """
     Direction of order/trade/position.
     """
-    LONG = "多"
-    SHORT = "空"
-    NET = "净"
+    LONG = "Long"
+    SHORT = "Short"
+    NET = "Net"
 
 
 class Offset(Enum):

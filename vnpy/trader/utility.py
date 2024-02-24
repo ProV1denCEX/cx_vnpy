@@ -228,17 +228,10 @@ class BarGenerator:
         Update new tick data into generator.
         """
         new_minute: bool = False
-
-        # Filter tick data with 0 last price
-        if not tick.last_price:
-            return
-
-        # Filter tick data with older timestamp
-        if self.last_tick and tick.datetime < self.last_tick.datetime:
-            return
-
         if not self.bar:
+            # 集合竞价的20：59 tick 由于有且只有一个，在此处必然是new minute，因此它的会聚合进21：00的bar 推入系统
             new_minute = True
+
         elif (
             (self.bar.datetime.minute != tick.datetime.minute)
             or (self.bar.datetime.hour != tick.datetime.hour)
@@ -274,7 +267,7 @@ class BarGenerator:
 
             self.bar.close_price = tick.last_price
             self.bar.open_interest = tick.open_interest
-            self.bar.datetime = tick.datetime
+            self.bar.datetime = tick.datetime  # 集合竞价的20：59会在此处被更新到21：00再推送
 
         if self.last_tick:
             volume_change: float = tick.volume - self.last_tick.volume
@@ -553,6 +546,18 @@ class ArrayManager(object):
         self.volume_array[-1] = bar.volume
         self.turnover_array[-1] = bar.turnover
         self.open_interest_array[-1] = bar.open_interest
+
+    def to_df(self):
+        return pd.DataFrame({
+            "datetime": self.datetime_array,
+            "open_price": self.open_array,
+            "high_price": self.high_array,
+            "low_price": self.low_array,
+            "close_price": self.close_array,
+            "volume": self.volume_array,
+            "turnover": self.turnover_array,
+            "open_interest": self.open_interest_array,
+        })
 
     @property
     def open(self) -> np.ndarray:

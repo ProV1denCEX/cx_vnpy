@@ -10,7 +10,7 @@ from vnpy.trader.gateway import BaseGateway
 from vnpy.trader.object import OrderRequest, LogData, TickData, SubscribeRequest, ContractData
 from vnpy.trader.engine import BaseEngine, MainEngine
 from vnpy.trader.event import EVENT_TRADE, EVENT_ORDER, EVENT_LOG, EVENT_TIMER, EVENT_CONTRACT, EVENT_TICK
-from vnpy.trader.constant import Direction, Status, Exchange
+from vnpy.trader.constant import Direction, Status, Exchange, Product
 
 APP_NAME = "MainContractManager"
 GATEWAY_NAME = "MC"
@@ -56,7 +56,7 @@ class MainContractManager(BaseEngine):
         # load mc contract obj
         database = get_database()
         today = datetime.combine(TDays.get_tday(fmt=None), time(0))
-        contracts = database.load_contract_data(start=today, end=today)
+        contracts = database.load_contract_data(product=Product.FUTURES, start=today, end=today)
         self.main_contracts = [contract for contract in contracts if contract.symbol == contract.product_id + SymbolSuffix.MC]
         # mnc = [contract for contract in contracts if contract.symbol == contract.product_id + SymbolSuffix.MNC]
 

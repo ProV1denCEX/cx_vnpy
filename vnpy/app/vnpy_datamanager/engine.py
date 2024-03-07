@@ -208,7 +208,7 @@ class ManagerEngine(BaseEngine):
             exchange,
             interval,
             start,
-            end
+            end,
         )
 
         return count
@@ -217,14 +217,17 @@ class ManagerEngine(BaseEngine):
         self,
         product: Product,
         listing_only: bool = True,
+        start: datetime = datetime.now(DB_TZ),
+        end: datetime = datetime.now(DB_TZ),
         output: Callable = print
     ):
         symbol = "listing_only" if listing_only else "all"
         req: HistoryRequest = HistoryRequest(
             symbol=symbol,
             exchange=Exchange.LOCAL,
+            start=start,
+            end=end,
             product=product,
-            start=datetime.now(DB_TZ),
         )
 
         data: List[ContractData] = self.datafeed.query_contract_history(req, output)
@@ -242,7 +245,7 @@ class ManagerEngine(BaseEngine):
         product: Product = Product.FUTURES,
         interval: str = "1m",
         start: datetime = datetime(2010, 1, 1),
-        end: datetime = datetime.now(DB_TZ),
+        end: datetime = datetime.now(),
 
         output: Callable = print,
         return_data: bool = False,

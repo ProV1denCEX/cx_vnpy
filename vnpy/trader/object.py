@@ -245,6 +245,7 @@ class ContractData(BaseData):
 
     list_date: datetime
     expire_date: datetime
+    datetime: datetime = None
 
     min_volume: float = 1           # minimum trading volume of the contract
     stop_supported: bool = False    # whether server supports stop order

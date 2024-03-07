@@ -64,7 +64,7 @@ class DolphindbDatabase(BaseDatabase):
                 d: dict = {
                     "symbol": contract.symbol,
                     "exchange": contract.exchange.value,
-                    "datetime": dt,
+                    "datetime": contract.datetime or dt,
                     "name": contract.name,
                     "product_id": contract.product_id,
                     "size": contract.size,
@@ -80,7 +80,7 @@ class DolphindbDatabase(BaseDatabase):
                 d: dict = {
                     "symbol": contract.symbol,
                     "exchange": contract.exchange.value,
-                    "datetime": dt,
+                    "datetime": contract.datetime or dt,
                     "name": contract.name,
                     "product_id": contract.product_id,
                     "size": contract.size,
@@ -265,32 +265,37 @@ class DolphindbDatabase(BaseDatabase):
                 end = end.strftime(DateFmt.dolphin_datetime.value)
                 query = query.where(f'datetime <= {end}')
 
-            df: pd.DataFrame = query.toDF()
+            df: pd.DataFrame = query.sort("datetime").toDF()
 
             if df.empty:
                 return []
 
-            for tp in df.itertuples():
+            for symbol, info in df.groupby("symbol"):
+                last_info = info.iloc[-1, :]
+
                 contract = ContractData(
-                    symbol=tp.symbol,
-                    exchange=Exchange[tp.exchange],
-                    name=tp.name,
+                    symbol=symbol,
+                    exchange=Exchange[last_info['exchange']],
+                    name=last_info['name'],
                     product=product,
-                    product_id=tp.product_id,
-                    size=tp.size,
-                    pricetick=tp.pricetick,
-                    list_date=tp.list_date.to_pydatetime(),
-                    expire_date=tp.expire_date.to_pydatetime(),
-                    min_volume=tp.min_volume,
+                    product_id=last_info['product_id'],
+                    size=last_info['size'],
+                    pricetick=last_info['pricetick'],
 
-                    option_strike=tp.option_strike,
-                    option_underlying=tp.option_underlying,
-                    option_type=OptionType.from_str(tp.option_type),
-                    option_portfolio=tp.option_portfolio,
-                    option_index=tp.option_index,
+                    list_date=last_info['list_date'].to_pydatetime(),
+                    expire_date=last_info['expire_date'].to_pydatetime(),
+                    datetime=last_info['datetime'].to_pydatetime(),
 
-                    option_listed=tp.list_date.to_pydatetime(),
-                    option_expiry=tp.expire_date.to_pydatetime(),
+                    min_volume=last_info['min_volume'],
+
+                    option_strike=last_info['option_strike'],
+                    option_underlying=last_info['option_underlying'],
+                    option_type=OptionType.from_str(last_info['option_type']),
+                    option_portfolio=last_info['option_portfolio'],
+                    option_index=last_info['option_index'],
+
+                    option_listed=last_info['list_date'].to_pydatetime(),
+                    option_expiry=last_info['expire_date'].to_pydatetime(),
 
                     gateway_name="DB"
                 )

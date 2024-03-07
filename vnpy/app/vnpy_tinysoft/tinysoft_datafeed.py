@@ -6,7 +6,7 @@ from pyTSL import Client, DoubleToDatetime
 
 from vnpy.trader.database import get_database
 from vnpy.trader.setting import SETTINGS
-from vnpy.trader.constant import Exchange, Interval, Product
+from vnpy.trader.constant import Exchange, Interval, Product, OptionType
 from vnpy.trader.object import BarData, TickData, HistoryRequest, ContractData
 from vnpy.trader.utility import ZoneInfo, generate_ticker
 from vnpy.trader.datafeed import BaseDatafeed
@@ -23,6 +23,9 @@ EXCHANGE_CHINESE_MAP: Dict[str, Exchange] = {
     "上海国际能源交易中心": Exchange.INE,
     "中国金融期货交易所": Exchange.CFFEX,
     "广州期货交易所": Exchange.GFEX,
+
+    "上海证券交易所": Exchange.SSE,
+    "深圳证券交易所": Exchange.SZSE,
 }
 
 
@@ -37,10 +40,45 @@ SHIFT_MAP: Dict[Interval, timedelta] = {
     Interval.HOUR: timedelta(hours=1),
 }
 
+OPTION_TYPE_MAP = {
+    "认购": OptionType.CALL,
+    "认沽": OptionType.PUT,
+}
+
 CHINA_TZ = ZoneInfo("Asia/Shanghai")
 
 LISTING_SYMBOL = "listing_only"
 ALL_SYMBOL = "all"
+
+
+def get_option_symbol(symbol):
+    if symbol.startswith("OP"):
+        return symbol.replace("OP", "")
+
+    else:
+        return symbol
+
+
+def get_contract(symbol: str):
+    return ''.join((i for i in symbol if i.isalpha()))
+
+
+def get_option_product_info(series, exchange: Exchange):
+    if exchange == Exchange.CFFEX:
+        symbol = series["StockID"]
+        underlying = symbol.split("-")[0]
+        portfolio = get_contract(underlying)
+
+    elif exchange in {Exchange.SSE, Exchange.SZSE}:
+        symbol = series["标的证券代码"]
+        underlying = symbol[2:]
+        portfolio = underlying + "_O"
+
+    else:
+        underlying = series["标的证券代码"]
+        portfolio = get_contract(underlying) + "_o"
+
+    return underlying, portfolio
 
 
 class TinysoftDatafeed(BaseDatafeed):
@@ -96,47 +134,103 @@ class TinysoftDatafeed(BaseDatafeed):
             if not n:
                 return []
 
-        if req.product == Product.OPTION:
-            raise NotImplementedError
+        contracts = []
 
-        if req.symbol == LISTING_SYMBOL:
+        if req.product == Product.OPTION:
             bk_func = "GetBk"
+            bks = "ALLOptionsBK()"
+
+            start_str: str = req.start.strftime("%Y%m%d")
+            end_str: str = req.end.strftime("%Y%m%d")
+
+            cmd = (f"symbols := {bk_func}({bks}); "
+                   "return select * from infotable 720 "
+                   "of symbols "
+                   f"where ['截止日'] >= {start_str} and ['截止日'] <= {end_str} "
+                   "end;")
+
+            result = self.client.exec(cmd)
+            if not result.error():
+                data = pd.DataFrame(result.value())
+
+                if not data.empty:
+                    data["首个交易日"] = pd.to_datetime(data["首个交易日"].astype(str))
+                    data["最后交易日"] = pd.to_datetime(data["最后交易日"].astype(str))
+                    data["截止日"] = pd.to_datetime(data["截止日"].astype(str))
+
+                    for idx, d in data.iterrows():
+                        exchange = EXCHANGE_CHINESE_MAP.get(d["上市地"])
+                        underlying, portfolio = get_option_product_info(d, exchange)
+
+                        contract: ContractData = ContractData(
+                            symbol=get_option_symbol(d["StockID"]),
+                            exchange=exchange,
+                            name=d["StockName"],
+                            product_id=portfolio,
+                            product=req.product,
+                            size=d["合约单位"],
+                            pricetick=d["最小报价单位"],
+
+                            list_date=d["首个交易日"],
+                            expire_date=d["最后交易日"],
+                            datetime=d["截止日"],
+
+                            option_strike=d['行权价'],
+                            option_underlying=underlying,
+                            option_type=OPTION_TYPE_MAP[d['期权类型']],
+
+                            gateway_name="TSL"
+                        )
+
+                        contract.option_listed = contract.list_date
+                        contract.option_expiry = contract.expire_date
+                        contract.option_index = str(contract.option_strike)  # same w ctp
+                        contract.option_portfolio = contract.product_id
+
+                        contracts.append(contract)
+
+        elif req.product == Product.FUTURES:
+            if req.symbol == LISTING_SYMBOL:
+                bk_func = "GetBk"
+
+            else:
+                bk_func = "GetBkAll"
+
+            bks = "'国内商品期货;股指期货;国债期货'"
+
+            cmd = (f"symbols := {bk_func}({bks}); "
+                   "return select * from infotable 703 "
+                   "of symbols end;")
+
+            result = self.client.exec(cmd)
+            if not result.error():
+                data = pd.DataFrame(result.value())
+                if not data.empty:
+                    loc = data["变动日"] > 20100101
+                    data = data[loc].sort_values('变动日')
+                    for name, d in data.groupby('StockID'):
+                        if len(d) > 1:
+                            assert d["变动日"].iat[0] < d["变动日"].iat[-1]
+
+                        contract: ContractData = ContractData(
+                            symbol=d["StockName"].iat[0],
+                            exchange=EXCHANGE_CHINESE_MAP.get(d["上市地"].iat[0]),
+                            name=d["StockID"],
+                            product_id=d["交易代码"].iat[0],
+                            product=req.product,
+                            size=d["合约乘数"].iat[-1],
+                            pricetick=d["最小变动价位"].iat[-1],
+
+                            list_date=datetime.strptime(str(d["变动日"].iat[0]), "%Y%m%d"),
+                            expire_date=datetime.strptime(str(d["最后交易日"].iat[-1]), "%Y%m%d"),
+
+                            gateway_name="TSL"
+                        )
+
+                        contracts.append(contract)
 
         else:
-            bk_func = "GetBkAll"
-
-        bks = "'国内商品期货;股指期货;国债期货'"
-
-        cmd = (f"symbols := {bk_func}({bks}); "
-               "return select * from infotable 703 of symbols end;")
-
-        contracts = []
-        result = self.client.exec(cmd)
-        if not result.error():
-            data = pd.DataFrame(result.value())
-            if not data.empty:
-                loc = data["变动日"] > 20100101
-                data = data[loc].sort_values('变动日')
-                for name, d in data.groupby('StockID'):
-                    if len(d) > 1:
-                        assert d["变动日"].iat[0] < d["变动日"].iat[-1]
-
-                    contract: ContractData = ContractData(
-                        symbol=d["StockName"].iat[0],
-                        exchange=EXCHANGE_CHINESE_MAP.get(d["上市地"].iat[0]),
-                        name=d["StockID"],
-                        product_id=d["交易代码"].iat[0],
-                        product=req.product,
-                        size=d["合约乘数"].iat[-1],
-                        pricetick=d["最小变动价位"].iat[-1],
-
-                        list_date=datetime.strptime(str(d["变动日"].iat[0]), "%Y%m%d"),
-                        expire_date=datetime.strptime(str(d["最后交易日"].iat[-1]), "%Y%m%d"),
-
-                        gateway_name="TSL"
-                    )
-
-                    contracts.append(contract)
+            raise NotImplementedError
 
         return contracts
 
@@ -156,14 +250,18 @@ class TinysoftDatafeed(BaseDatafeed):
         return bars
 
     def query_bar_history_by_date(self, req: HistoryRequest, output: Callable = print) -> Optional[List[BarData]]:
-        if req.symbol == LISTING_SYMBOL:
-            bk_func = "GetBk"
-
-        else:
-            bk_func = "GetBkAll"
-
         if req.product == Product.FUTURES:
             bks = "'国内商品期货;股指期货;国债期货'"
+
+            if req.symbol == LISTING_SYMBOL:
+                bk_func = "GetBk"
+
+            else:
+                bk_func = "GetBkAll"
+
+        elif req.product == Product.OPTION:
+            bk_func = "GetBk"
+            bks = "ALLOptionsBK()"
 
         else:
             raise NotImplementedError
@@ -206,13 +304,20 @@ class TinysoftDatafeed(BaseDatafeed):
                     'size': [contract.size for contract in contracts],
                 })
 
-                data['StockID'] = data['StockID'].str.upper()
-                data = data.merge(contract_info, how='left', left_on='StockID', right_on='name')
+                if req.product == Product.FUTURES:
+                    data['StockID'] = data['StockID'].str.upper()
+                    data = data.merge(contract_info, how='left', left_on='StockID', right_on='name')
+
+                    data = self.fix_amount(data, multiplier='size')
+
+                elif req.product == Product.OPTION:
+                    data['StockID'] = data['StockID'].apply(get_option_symbol)
+                    data = data.merge(contract_info, how='left', left_on='StockID', right_on='symbol')
+
                 if pd.isna(data).any().any():
                     output("WARNING: na detected in tsl data query. check contract info!")
                     data = data.dropna()
 
-                data = self.fix_amount(data, multiplier='size')
                 data = self.fix_zero_price(data)
 
                 for _, d in data.iterrows():
@@ -252,8 +357,17 @@ class TinysoftDatafeed(BaseDatafeed):
 
         symbol, exchange, ticker = contract.symbol, contract.exchange, contract.name
 
-        tsl_exchange: str = EXCHANGE_MAP.get(exchange, "")
-        tsl_ticker = f"'{tsl_exchange}{ticker}'"
+        if req.product == Product.OPTION:
+            if exchange in {Exchange.SSE, Exchange.SZSE}:
+                tsl_ticker = f"'OP{symbol}'"
+
+            else:
+                tsl_ticker = f"'{symbol}'"
+
+        else:
+            tsl_exchange: str = EXCHANGE_MAP.get(exchange, "")
+            tsl_ticker = f"'{tsl_exchange}{ticker}'"
+
         tsl_interval: str = INTERVAL_MAP[req.interval]
 
         bars: List[BarData] = []
@@ -282,7 +396,9 @@ class TinysoftDatafeed(BaseDatafeed):
                 if shift:
                     data['dt'] -= shift
 
-                data = self.fix_amount(data, multiplier=contract.size)
+                if req.product == Product.FUTURES:
+                    data = self.fix_amount(data, multiplier=contract.size)  # Option's size is variable
+
                 data = self.fix_zero_price(data)
 
                 for _, d in data.iterrows():

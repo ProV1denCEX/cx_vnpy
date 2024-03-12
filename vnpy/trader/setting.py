@@ -39,6 +39,7 @@ SETTINGS: Dict[str, Any] = {
         'tick': 'tick',
         'bar': 'bar',
 
+        'contract': 'contract',
         'contract_futures': 'contract_futures',
         'contract_options': 'contract_options',
     },

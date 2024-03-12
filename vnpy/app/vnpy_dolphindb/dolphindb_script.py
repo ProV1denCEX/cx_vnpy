@@ -114,6 +114,25 @@ def create_tickoverview_table_script(database: str, table_name: str = "tickoverv
     return script
 
 
+def create_contract_table_script(database: str, table_name: str = "contract"):
+    db_path = "dfs://" + database
+    script = f"""
+    dataPath = "{db_path}"
+    db = database(dataPath)
+    overview_columns = ["symbol", "exchange", "datetime", "name", "product", "product_id", "size", "pricetick", "list_date", "expire_date", "min_volume"]
+    overview_type = [SYMBOL, SYMBOL, NANOTIMESTAMP, SYMBOL, SYMBOL, SYMBOL, DOUBLE, DOUBLE, NANOTIMESTAMP, NANOTIMESTAMP, DOUBLE]
+    tickoverview = table(1:0, overview_columns, overview_type)
+    db.createPartitionedTable(
+        tickoverview,
+        "{table_name}",
+        partitionColumns=["expire_date"],
+        sortColumns=["symbol", "exchange", "product", "list_date"],
+        keepDuplicates=LAST)
+    """
+
+    return script
+
+
 def create_contract_future_table_script(database: str, table_name: str = "contract_futures"):
     db_path = "dfs://" + database
     script = f"""
@@ -178,6 +197,7 @@ SCRIPTS_FUNC = {
     'bar': create_bar_table_script,
     'bar_options': create_bar_table_script,
 
+    'contract': create_contract_table_script,
     'contract_futures': create_contract_future_table_script,
     'contract_options': create_contract_option_table_script,
 }

@@ -45,6 +45,14 @@ OPTION_TYPE_MAP = {
     "认沽": OptionType.PUT,
 }
 
+
+INDEX_SYMBOL_MAP = {
+    "IO": "000300",
+    "MO": "000852",
+    "HO": "000016",
+}
+
+
 CHINA_TZ = ZoneInfo("Asia/Shanghai")
 
 LISTING_SYMBOL = "listing_only"
@@ -229,6 +237,55 @@ class TinysoftDatafeed(BaseDatafeed):
 
                         contracts.append(contract)
 
+        elif req.product == Product.ETF:
+            underlying_symbols = self.database.query(
+                self.database.table_name["contract_options"],
+                fields="distinct option_underlying, exchange",
+                where='exchange in ("SSE", "SZSE")',
+            )
+
+            for i, d in underlying_symbols.iterrows():
+                contract = ContractData(
+                    symbol=d['option_underlying'],
+                    exchange=Exchange[d['exchange']],
+                    name=d['option_underlying'],
+                    product_id=d['option_underlying'],
+                    product=Product.ETF,
+                    size=10000,
+                    pricetick=0.0001,
+                    list_date=datetime(2000, 1, 1),
+                    expire_date=datetime(2100, 1, 1),
+
+                    gateway_name="TSL"
+                )
+
+                contracts.append(contract)
+
+        elif req.product == Product.INDEX:
+            underlying_symbols = self.database.query(
+                self.database.table_name["contract_options"],
+                fields="distinct product_id, exchange",
+                where='exchange = "CFFEX"',
+            )
+
+            for i, d in underlying_symbols.iterrows():
+                symbol = INDEX_SYMBOL_MAP.get(d['product_id'], d['product_id'])
+                contract = ContractData(
+                    symbol=symbol,
+                    exchange=Exchange.SSE,
+                    name=d['product_id'],
+                    product_id=symbol,
+                    product=Product.INDEX,
+                    size=1,
+                    pricetick=0.01,
+                    list_date=datetime(2000, 1, 1),
+                    expire_date=datetime(2100, 1, 1),
+
+                    gateway_name="TSL"
+                )
+
+                contracts.append(contract)
+
         else:
             raise NotImplementedError
 
@@ -357,16 +414,22 @@ class TinysoftDatafeed(BaseDatafeed):
 
         symbol, exchange, ticker = contract.symbol, contract.exchange, contract.name
 
+        timeout = 0
         if req.product == Product.OPTION:
             if exchange in {Exchange.SSE, Exchange.SZSE}:
                 tsl_ticker = f"'OP{symbol}'"
+                timeout = int(1000 * 5)
 
             else:
                 tsl_ticker = f"'{symbol}'"
 
-        else:
+        elif req.product == Product.FUTURES:
             tsl_exchange: str = EXCHANGE_MAP.get(exchange, "")
             tsl_ticker = f"'{tsl_exchange}{ticker}'"
+
+        else:
+            tsl_exchange: str = EXCHANGE_MAP.get(exchange, "")
+            tsl_ticker = f"'{tsl_exchange}{symbol}'"
 
         tsl_interval: str = INTERVAL_MAP[req.interval]
 
@@ -382,7 +445,7 @@ class TinysoftDatafeed(BaseDatafeed):
             f"datekey {start_str} to {end_str} "
             f"of {tsl_ticker} end;"
         )
-        result = self.client.exec(cmd)
+        result = self.client.exec(cmd, timeout=timeout)
 
         if result.error():
             output(result)

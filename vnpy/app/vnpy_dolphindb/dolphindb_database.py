@@ -1,4 +1,5 @@
 from datetime import datetime
+from enum import Enum
 
 import numpy as np
 import pandas as pd
@@ -54,7 +55,39 @@ class DolphindbDatabase(BaseDatabase):
         if not self.session.isClosed():
             self.session.close()
 
+    def query(self, table, **kwargs):
+        table: ddb.Table = self.session.loadTable(tableName=table, dbPath=self.db_path)
+
+        fields = kwargs.pop("fields", "*")
+
+        query = table.select(fields)
+        for k, v in kwargs.items():
+            if not v:
+                continue
+
+            if k == "start":
+                start = v.strftime(DateFmt.dolphin_datetime.value)
+                query = query.where(f'datetime>={start}')
+
+            elif k == "end":
+                end = v.strftime(DateFmt.dolphin_datetime.value)
+                query = query.where(f'datetime<={end}')
+
+            elif k == "where":
+                query = query.where(v)
+
+            elif isinstance(v, Enum):
+                query = query.where(f'{k}="{v.value}"')
+
+            else:
+                query = query.where(f'{k}="{v}"')
+
+        df: pd.DataFrame = query.toDF()
+
+        return df
+
     def save_contract_data(self, contracts: list[ContractData]) -> bool:
+        contracts_to_db = []
         futures_to_db = []
         options_to_db = []
 
@@ -98,6 +131,23 @@ class DolphindbDatabase(BaseDatabase):
 
                 options_to_db.append(d)
 
+            else:
+                d: dict = {
+                    "symbol": contract.symbol,
+                    "exchange": contract.exchange.value,
+                    "datetime": contract.datetime or dt,
+                    "name": contract.name,
+                    "product": contract.product.value,
+                    "product_id": contract.product_id,
+                    "size": contract.size,
+                    "pricetick": contract.pricetick,
+                    "list_date": contract.list_date,
+                    "expire_date": contract.expire_date,
+                    "min_volume": contract.min_volume,
+                }
+
+                contracts_to_db.append(d)
+
         if futures_to_db:
             df: pd.DataFrame = pd.DataFrame.from_records(futures_to_db)
             appender: ddb.PartitionedTableAppender = ddb.PartitionedTableAppender(self.db_path, self.table_name["contract_futures"], "expire_date", self.pool)
@@ -106,6 +156,11 @@ class DolphindbDatabase(BaseDatabase):
         if options_to_db:
             df: pd.DataFrame = pd.DataFrame.from_records(options_to_db)
             appender: ddb.PartitionedTableAppender = ddb.PartitionedTableAppender(self.db_path, self.table_name["contract_options"], "datetime", self.pool)
+            appender.append(df)
+
+        if contracts_to_db:
+            df: pd.DataFrame = pd.DataFrame.from_records(contracts_to_db)
+            appender: ddb.PartitionedTableAppender = ddb.PartitionedTableAppender(self.db_path, self.table_name["contract"], "expire_date", self.pool)
             appender.append(df)
 
         return True
@@ -302,7 +357,47 @@ class DolphindbDatabase(BaseDatabase):
                 contracts.append(contract)
 
         else:
-            raise NotImplementedError
+            table_name = self.table_name["contract"]
+
+            table: ddb.Table = self.session.loadTable(tableName=table_name, dbPath=self.db_path)
+
+            query = table.select('*')
+
+            if symbol:
+                query = query.where(f'symbol="{symbol}"')
+
+            if product:
+                query = query.where(f'product="{product.value}"')
+
+            if start:
+                start = start.strftime(DateFmt.dolphin_datetime.value)
+                query = query.where(f'expire_date>={start}')
+
+            if end:
+                end = end.strftime(DateFmt.dolphin_datetime.value)
+                query = query.where(f'list_date<={end}')
+
+            df: pd.DataFrame = query.toDF()
+
+            if df.empty:
+                return []
+
+            for tp in df.itertuples():
+                contract = ContractData(
+                    symbol=tp.symbol,
+                    exchange=Exchange[tp.exchange],
+                    name=tp.name,
+                    product=Product(tp.product),
+                    product_id=tp.product_id,
+                    size=tp.size,
+                    pricetick=tp.pricetick,
+                    list_date=tp.list_date.to_pydatetime(),
+                    expire_date=tp.expire_date.to_pydatetime(),
+                    min_volume=tp.min_volume,
+
+                    gateway_name="DB"
+                )
+                contracts.append(contract)
 
         return contracts
 

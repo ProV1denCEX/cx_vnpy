@@ -11,7 +11,7 @@ from plotly.subplots import make_subplots
 from pandas import DataFrame
 from tqdm.auto import tqdm
 
-from vnpy.trader.constant import Direction, Offset, Interval, Status
+from vnpy.trader.constant import Direction, Offset, Interval, Status, Product
 from vnpy.trader.database import get_database, BaseDatabase
 from vnpy.trader.object import OrderData, TradeData, BarData
 from vnpy.trader.utility import round_to, extract_vt_symbol
@@ -874,6 +874,7 @@ class PortfolioDailyResult:
 def load_bar_data(
     vt_symbol: str,
     interval: Interval,
+    product: Product,
     start: datetime,
     end: datetime
 ) -> List[BarData]:
@@ -883,7 +884,7 @@ def load_bar_data(
     database: BaseDatabase = get_database()
 
     return database.load_bar_data(
-        symbol, exchange, interval, start, end
+        symbol, exchange, product, interval, start, end
     )
 
 

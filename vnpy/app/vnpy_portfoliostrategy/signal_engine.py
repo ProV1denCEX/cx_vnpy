@@ -207,6 +207,7 @@ class SignalEngine(BaseEngine):
             data = self.database.load_bar_data(
                 symbol=symbol,
                 exchange=exchange,
+                product=contract.product,
                 interval=interval,
                 start=start,
                 end=end,

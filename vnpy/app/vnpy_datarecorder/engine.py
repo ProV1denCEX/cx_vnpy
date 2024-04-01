@@ -83,8 +83,20 @@ class RecorderEngine(BaseEngine):
 
                 if task_type == "tick":
                     self.database.save_tick_data(data, stream=True)
+
                 elif task_type == "bar":
-                    self.database.save_bar_data(data, stream=True)
+                    data_2_save = {}
+                    for bar in data:
+                        product = self.bar_recordings[bar.vt_symbol].get('product')
+
+                        if product in data_2_save:
+                            data_2_save[product].append(bar)
+
+                        else:
+                            data_2_save[product] = [bar]
+
+                    for product, bars in data_2_save.items():
+                        self.database.save_bar_data(bars, stream=True, product=product)
 
             except Empty:
                 continue
@@ -123,6 +135,7 @@ class RecorderEngine(BaseEngine):
             self.bar_recordings[vt_symbol] = {
                 "symbol": contract.symbol,
                 "exchange": contract.exchange.value,
+                "product": contract.product,
                 "gateway_name": contract.gateway_name
             }
 

@@ -194,8 +194,10 @@ def create_trade_time_table_script(database: str, table_name: str = "trade_time"
 SCRIPTS_FUNC = {
     'database': create_database_script,
     'tick': create_tick_table_script,
+
     'bar': create_bar_table_script,
     'bar_options': create_bar_table_script,
+    'bar_futures': create_bar_table_script,
 
     'contract': create_contract_table_script,
     'contract_futures': create_contract_future_table_script,

@@ -37,7 +37,10 @@ SETTINGS: Dict[str, Any] = {
     "database.password": "zaq1@WSXcde3",
     "database.table_name": {
         'tick': 'tick',
+
         'bar': 'bar',
+        'bar_futures': 'bar_futures',
+        'bar_options': 'bar_options',
 
         'contract': 'contract',
         'contract_futures': 'contract_futures',

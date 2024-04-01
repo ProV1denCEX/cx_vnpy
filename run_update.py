@@ -56,8 +56,12 @@ def update_futures(start_date, end_date, output=print, symbol_set=LISTING_SYMBOL
             start = dt.datetime.combine(prev_tday, dt.time(hour=21))
             end = dt.datetime.combine(tday, dt.time(hour=15, minute=30))
 
-            count = data_manager.delete_bar_data(start=start, end=end)
-            output(f"delete bar from {start} to {end} {count}")
+            try:
+                count = data_manager.delete_bar_data(product=Product.FUTURES, start=start, end=end)
+                output(f"delete bar from {start} to {end} {count}")
+
+            except Exception as e:
+                output(f"failed to delete bar from {start} to {end}, exception {e} !!!")
 
             bars = data_manager.download_bar_data(
                 symbol_set,
@@ -93,7 +97,7 @@ def update_futures(start_date, end_date, output=print, symbol_set=LISTING_SYMBOL
             total = 0
             for symbol, bars_ in bars_to_build.items():
                 bars_.sort(key=lambda x: x.datetime)
-                count = data_manager.rebuild_bar_data_from_data(bars_, "recorder")
+                count = data_manager.rebuild_bar_data_from_data(bars_, "recorder", Product.FUTURES)
                 total += count
 
             output(f"{symbol_set} rebuild recorder from {start} to {end} {total}")
@@ -124,6 +128,13 @@ def update_options(start_date, end_date, output=print, symbol_set=LISTING_SYMBOL
     start = dt.datetime.combine(prev_tday, dt.time(hour=21))
     end = dt.datetime.combine(periods[-1], dt.time(hour=15, minute=30))
 
+    try:
+        count = data_manager.delete_bar_data(product=Product.OPTION, start=start, end=end)
+        output(f"delete bar from {start} to {end} {count}")
+
+    except Exception as e:
+        output(f"failed to delete bar from {start} to {end}, exception {e} !!!")
+
     count = data_manager.download_bar_data(
         symbol_set,
         Exchange.LOCAL,
@@ -153,7 +164,7 @@ def update_options(start_date, end_date, output=print, symbol_set=LISTING_SYMBOL
             total = len(bars)
 
             bars.sort(key=lambda x: x.datetime)
-            count = data_manager.rebuild_bar_data_from_data(bars, "recorder")
+            count = data_manager.rebuild_bar_data_from_data(bars, "recorder", contract.product)
             total += count
 
             output(f"{contract.symbol} min data from {start} to {end} {total}")
@@ -182,6 +193,13 @@ def update_option_underlyings(start_date, end_date, output=print, symbol_set=LIS
     start = dt.datetime.combine(prev_tday, dt.time(hour=21))
     end = dt.datetime.combine(periods[-1], dt.time(hour=15, minute=30))
 
+    try:
+        count = data_manager.delete_bar_data(start=start, end=end)
+        output(f"delete bar from {start} to {end} {count}")
+
+    except Exception as e:
+        output(f"failed to delete bar from {start} to {end}, exception {e} !!!")
+
     with tqdm(total=len(contracts), desc=f"updating quote data from {start_date} to {end_date}") as pbar:
         for contract in contracts:
             output(f"updating quote data @{contract.symbol}...")
@@ -207,7 +225,7 @@ def update_option_underlyings(start_date, end_date, output=print, symbol_set=LIS
             total = len(bars)
 
             bars.sort(key=lambda x: x.datetime)
-            count = data_manager.rebuild_bar_data_from_data(bars, "recorder")
+            count = data_manager.rebuild_bar_data_from_data(bars, "recorder", contract.product)
             total += count
 
             output(f"{contract.symbol} min data from {start} to {end} {total}")
@@ -223,9 +241,9 @@ if __name__ == "__main__":
     # start = end = TDays.get_tday(end_hour=0)
     # run(start, end)
 
-    # update_futures(start, end)
-    # update_options(start, end)
-    update_options_dev(start, end)
+    update_futures(start, end)
+    update_options(start, end)
+    update_option_underlyings(start, end)
 
     # days = TDays.interval(days=5, fmt=None)
     # start = days[0]

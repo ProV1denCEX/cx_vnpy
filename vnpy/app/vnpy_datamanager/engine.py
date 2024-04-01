@@ -31,6 +31,7 @@ class ManagerEngine(BaseEngine):
         file_path: str,
         symbol: str,
         exchange: Exchange,
+        product: Product,
         interval: Interval,
         tz_name: str,
         datetime_head: str,
@@ -89,7 +90,7 @@ class ManagerEngine(BaseEngine):
         end: datetime = bar.datetime
 
         # insert into database
-        self.database.save_bar_data(bars)
+        self.database.save_bar_data(bars, product=product)
 
         return start, end, count
 
@@ -98,12 +99,13 @@ class ManagerEngine(BaseEngine):
         file_path: str,
         symbol: str,
         exchange: Exchange,
+        product: Product,
         interval: Interval,
         start: datetime,
         end: datetime
     ) -> bool:
         """"""
-        bars: List[BarData] = self.load_bar_data(symbol, exchange, interval, start, end)
+        bars: List[BarData] = self.load_bar_data(symbol, exchange, product, interval, start, end)
 
         fieldnames: list = [
             "symbol",
@@ -169,6 +171,7 @@ class ManagerEngine(BaseEngine):
         self,
         symbol: str,
         exchange: Exchange,
+        product: Product,
         interval: Interval,
         start: datetime,
         end: datetime
@@ -177,6 +180,7 @@ class ManagerEngine(BaseEngine):
         bars: List[BarData] = self.database.load_bar_data(
             symbol,
             exchange,
+            product,
             interval,
             start,
             end
@@ -198,6 +202,7 @@ class ManagerEngine(BaseEngine):
         self,
         symbol: str = None,
         exchange: Exchange = None,
+        product: Product = None,
         interval: Interval = None,
         start: datetime = None,
         end: datetime = None,
@@ -206,6 +211,7 @@ class ManagerEngine(BaseEngine):
         count: int = self.database.delete_bar_data(
             symbol,
             exchange,
+            product,
             interval,
             start,
             end,
@@ -295,7 +301,7 @@ class ManagerEngine(BaseEngine):
             data: List[BarData] = self.datafeed.query_bar_history(req, output)
 
         if data:
-            self.database.save_bar_data(data)
+            self.database.save_bar_data(data, product=req.product)
 
         if return_data:
             return data
@@ -332,6 +338,7 @@ class ManagerEngine(BaseEngine):
             self,
             symbol: str,
             exchange: Exchange,
+            product: Product,
             interval: str,
             start: datetime,
             end: datetime = datetime.now(DB_TZ)
@@ -349,7 +356,7 @@ class ManagerEngine(BaseEngine):
                 bg.update_tick(tick)
 
         else:
-            bars = self.load_bar_data(symbol, exchange, Interval.MINUTE, start, end)
+            bars = self.load_bar_data(symbol, exchange, product, Interval.MINUTE, start, end)
 
             bgs = []
             if interval == "recorder":
@@ -368,12 +375,12 @@ class ManagerEngine(BaseEngine):
                     bg.update_bar(bar)
 
         if bars_to_save:
-            self.database.save_bar_data(bars_to_save)
+            self.database.save_bar_data(bars_to_save, product=product)
             return len(bars_to_save)
 
         return 0
 
-    def rebuild_bar_data_from_data(self, data: list, interval: Interval):
+    def rebuild_bar_data_from_data(self, data: list, interval: Interval, product: Product):
         bars_to_save = []
 
         def record_bar(bar):
@@ -402,7 +409,7 @@ class ManagerEngine(BaseEngine):
                     bg.update_bar(bar)
 
         if bars_to_save:
-            self.database.save_bar_data(bars_to_save)
+            self.database.save_bar_data(bars_to_save, product=product)
             return len(bars_to_save)
 
         return 0

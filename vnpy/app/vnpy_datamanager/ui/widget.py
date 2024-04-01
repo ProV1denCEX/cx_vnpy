@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 
 from vnpy.trader.ui import QtWidgets, QtCore
 from vnpy.trader.engine import MainEngine, EventEngine
-from vnpy.trader.constant import Interval, Exchange
+from vnpy.trader.constant import Interval, Exchange, Product
 from vnpy.trader.object import BarData
 from vnpy.trader.database import DB_TZ
 from vnpy.trader.utility import available_timezones
@@ -211,6 +211,7 @@ class ManagerWidget(QtWidgets.QWidget):
         file_path: str = dialog.file_edit.text()
         symbol: str = dialog.symbol_edit.text()
         exchange = dialog.exchange_combo.currentData()
+        product = dialog.product_combo.currentData()
         interval = dialog.interval_combo.currentData()
         tz_name: str = dialog.tz_combo.currentText()
         datetime_head: str = dialog.datetime_edit.text()
@@ -227,6 +228,7 @@ class ManagerWidget(QtWidgets.QWidget):
             file_path,
             symbol,
             exchange,
+            product,
             interval,
             tz_name,
             datetime_head,
@@ -297,6 +299,7 @@ class ManagerWidget(QtWidgets.QWidget):
         self,
         symbol: str,
         exchange: Exchange,
+        product: Product,
         interval: Interval,
         start: datetime,
         end: datetime
@@ -312,6 +315,7 @@ class ManagerWidget(QtWidgets.QWidget):
         bars: List[BarData] = self.engine.load_bar_data(
             symbol,
             exchange,
+            product,
             interval,
             start,
             end
@@ -490,6 +494,10 @@ class ImportDialog(QtWidgets.QDialog):
         self.exchange_combo: QtWidgets.QComboBox = QtWidgets.QComboBox()
         for i in Exchange:
             self.exchange_combo.addItem(str(i.name), i)
+
+        self.product_combo: QtWidgets.QComboBox = QtWidgets.QComboBox()
+        for i in Product:
+            self.product_combo.addItem(str(i.name), i)
 
         self.interval_combo: QtWidgets.QComboBox = QtWidgets.QComboBox()
         for i in Interval:

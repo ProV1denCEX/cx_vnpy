@@ -150,22 +150,28 @@ class DolphindbDatabase(BaseDatabase):
 
         if futures_to_db:
             df: pd.DataFrame = pd.DataFrame.from_records(futures_to_db)
-            appender: ddb.PartitionedTableAppender = ddb.PartitionedTableAppender(self.db_path, self.table_name["contract_futures"], "expire_date", self.pool)
+            appender: ddb.PartitionedTableAppender = ddb.PartitionedTableAppender(self.db_path,
+                                                                                  self.table_name["contract_futures"],
+                                                                                  "expire_date", self.pool)
             appender.append(df)
 
         if options_to_db:
             df: pd.DataFrame = pd.DataFrame.from_records(options_to_db)
-            appender: ddb.PartitionedTableAppender = ddb.PartitionedTableAppender(self.db_path, self.table_name["contract_options"], "datetime", self.pool)
+            appender: ddb.PartitionedTableAppender = ddb.PartitionedTableAppender(self.db_path,
+                                                                                  self.table_name["contract_options"],
+                                                                                  "datetime", self.pool)
             appender.append(df)
 
         if contracts_to_db:
             df: pd.DataFrame = pd.DataFrame.from_records(contracts_to_db)
-            appender: ddb.PartitionedTableAppender = ddb.PartitionedTableAppender(self.db_path, self.table_name["contract"], "expire_date", self.pool)
+            appender: ddb.PartitionedTableAppender = ddb.PartitionedTableAppender(self.db_path,
+                                                                                  self.table_name["contract"],
+                                                                                  "expire_date", self.pool)
             appender.append(df)
 
         return True
 
-    def save_bar_data(self, bars: list[BarData], stream: bool = False) -> bool:
+    def save_bar_data(self, bars: list[BarData], stream: bool = False, product: Product = None) -> bool:
         """保存k线数据"""
         bars_to_db: list[dict] = []
 
@@ -189,7 +195,22 @@ class DolphindbDatabase(BaseDatabase):
             bars_to_db.append(d)
 
         df: pd.DataFrame = pd.DataFrame.from_records(bars_to_db)
-        appender: ddb.PartitionedTableAppender = ddb.PartitionedTableAppender(self.db_path, self.table_name["bar"], "datetime", self.pool)
+
+        if product == Product.FUTURES:
+            table_name = self.table_name["bar_futures"]
+
+        elif product == Product.OPTION:
+            table_name = self.table_name["bar_options"]
+
+        else:
+            table_name = self.table_name["bar"]
+
+        appender: ddb.PartitionedTableAppender = ddb.PartitionedTableAppender(
+            self.db_path,
+            table_name,
+            "datetime",
+            self.pool
+        )
         appender.append(df)
 
         return True
@@ -250,7 +271,12 @@ class DolphindbDatabase(BaseDatabase):
             ticks_to_db.append(d)
 
         df: pd.DataFrame = pd.DataFrame.from_records(ticks_to_db)
-        appender: ddb.PartitionedTableAppender = ddb.PartitionedTableAppender(self.db_path, self.table_name["tick"], "datetime", self.pool)
+        appender: ddb.PartitionedTableAppender = ddb.PartitionedTableAppender(
+            self.db_path,
+            self.table_name["tick"],
+            "datetime",
+            self.pool
+        )
         appender.append(df)
 
         return True
@@ -402,19 +428,30 @@ class DolphindbDatabase(BaseDatabase):
         return contracts
 
     def load_bar_data(
-        self,
-        symbol: str,
-        exchange: Exchange,
-        interval: Interval,
-        start: datetime,
-        end: datetime
+            self,
+            symbol: str,
+            exchange: Exchange,
+            product: Product,
+            interval: Interval,
+            start: datetime,
+            end: datetime
     ) -> list[BarData]:
         """读取K线数据"""
+        if product == Product.FUTURES:
+            table_name = self.table_name["bar_futures"]
+
+        elif product == Product.OPTION:
+            table_name = self.table_name["bar_options"]
+
+        else:
+            table_name = self.table_name["bar"]
+
+        # 加载数据表
+        table: ddb.Table = self.session.loadTable(tableName=table_name, dbPath=self.db_path)
+
         # 转换时间格式
         start = start.strftime(DateFmt.dolphin_datetime.value)
         end = end.strftime(DateFmt.dolphin_datetime.value)
-
-        table: ddb.Table = self.session.loadTable(tableName=self.table_name["bar"], dbPath=self.db_path)
 
         df: pd.DataFrame = (
             table.select('*')
@@ -455,11 +492,11 @@ class DolphindbDatabase(BaseDatabase):
         return bars
 
     def load_tick_data(
-        self,
-        symbol: str,
-        exchange: Exchange,
-        start: datetime,
-        end: datetime
+            self,
+            symbol: str,
+            exchange: Exchange,
+            start: datetime,
+            end: datetime
     ) -> list[TickData]:
         """读取Tick数据"""
         # 转换时间格式
@@ -532,16 +569,26 @@ class DolphindbDatabase(BaseDatabase):
         return ticks
 
     def delete_bar_data(
-        self,
-        symbol: str,
-        exchange: Exchange = None,
-        interval: Interval = None,
-        start: datetime = None,
-        end: datetime = None,
+            self,
+            symbol: str,
+            exchange: Exchange = None,
+            product: Product = None,
+            interval: Interval = None,
+            start: datetime = None,
+            end: datetime = None,
     ) -> int:
         """删除K线数据"""
+        if product == Product.FUTURES:
+            table_name = self.table_name["bar_futures"]
+
+        elif product == Product.OPTION:
+            table_name = self.table_name["bar_options"]
+
+        else:
+            table_name = self.table_name["bar"]
+
         # 加载数据表
-        table: ddb.Table = self.session.loadTable(tableName=self.table_name["bar"], dbPath=self.db_path)
+        table: ddb.Table = self.session.loadTable(tableName=table_name, dbPath=self.db_path)
 
         # 统计数据量
         query = table.select('count(*)')
@@ -587,9 +634,9 @@ class DolphindbDatabase(BaseDatabase):
         return count
 
     def delete_tick_data(
-        self,
-        symbol: str,
-        exchange: Exchange
+            self,
+            symbol: str,
+            exchange: Exchange
     ) -> int:
         """删除Tick数据"""
         # 加载数据表

@@ -37,6 +37,7 @@ def download_future_history():
             count = data_manager.delete_bar_data(
                 contract.symbol,
                 contract.exchange,
+                contract.product,
                 None,
                 start=contract.list_date,
                 end=contract.expire_date.replace(hour=23, minute=59, second=59)
@@ -47,7 +48,7 @@ def download_future_history():
             count = data_manager.download_bar_data(contract=contract, interval="d", output=print, return_data=False)
             print(f"{contract.symbol} download {count}")
 
-            count = data_manager.rebuild_bar_data_from_data(bars, "recorder")
+            count = data_manager.rebuild_bar_data_from_data(bars, "recorder", contract.product)
             print(f"{contract.symbol} rebuild {count}")
 
             pbar.update()
@@ -81,6 +82,7 @@ def download_option_history():
             count = data_manager.delete_bar_data(
                 contract.symbol,
                 contract.exchange,
+                contract.product,
                 None,
                 start=contract.list_date,
                 end=contract.expire_date.replace(hour=23, minute=59, second=59)
@@ -93,7 +95,7 @@ def download_option_history():
             if contract.exchange in {Exchange.SSE, Exchange.SZSE, Exchange.CFFEX}:
                 bars = data_manager.download_bar_data(contract=contract, interval="1m", output=print, return_data=True)
 
-                count = data_manager.rebuild_bar_data_from_data(bars, "recorder")
+                count = data_manager.rebuild_bar_data_from_data(bars, "recorder", contract.product)
                 pbar.set_description(f"{contract.symbol} rebuild {count}")
 
                 if not count:
@@ -129,6 +131,7 @@ def download_option_underlying_history():
             count = data_manager.delete_bar_data(
                 contract.symbol,
                 contract.exchange,
+                contract.product,
                 None,
                 start=contract.list_date,
                 end=contract.expire_date.replace(hour=23, minute=59, second=59)
@@ -139,7 +142,7 @@ def download_option_underlying_history():
             count = data_manager.download_bar_data(contract=contract, interval="d", output=print, return_data=False)
             print(f"{contract.symbol} download {count}")
 
-            count = data_manager.rebuild_bar_data_from_data(bars, "recorder")
+            count = data_manager.rebuild_bar_data_from_data(bars, "recorder", contract.product)
             print(f"{contract.symbol} rebuild {count}")
 
             pbar.update()

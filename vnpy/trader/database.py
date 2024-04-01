@@ -61,7 +61,7 @@ class BaseDatabase(ABC):
         pass
 
     @abstractmethod
-    def save_bar_data(self, bars: list[BarData], stream: bool = False) -> bool:
+    def save_bar_data(self, bars: list[BarData], stream: bool = False, product: Product = None) -> bool:
         """
         Save bar data into database.
         """
@@ -92,6 +92,7 @@ class BaseDatabase(ABC):
             self,
             symbol: str,
             exchange: Exchange,
+            product: Product,
             interval: Interval,
             start: datetime,
             end: datetime
@@ -119,6 +120,7 @@ class BaseDatabase(ABC):
             self,
             symbol: str,
             exchange: Exchange,
+            product: Product,
             interval: Interval,
             start: datetime = None,
             end: datetime = None,

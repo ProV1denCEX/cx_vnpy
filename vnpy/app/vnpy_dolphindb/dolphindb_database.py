@@ -55,6 +55,26 @@ class DolphindbDatabase(BaseDatabase):
         if not self.session.isClosed():
             self.session.close()
 
+    def get_table_name(self, kind, product):
+        if kind == "bar":
+            if product == Product.FUTURES:
+                return self.table_name["bar_futures"]
+            elif product == Product.OPTION:
+                return self.table_name["bar_options"]
+            else:
+                return self.table_name["bar"]
+
+        elif kind == "contract":
+            if product == Product.FUTURES:
+                return self.table_name["contract_futures"]
+            elif product == Product.OPTION:
+                return self.table_name["contract_options"]
+            else:
+                return self.table_name["contract"]
+
+        else:
+            return self.table_name[kind]
+
     def query(self, table, **kwargs):
         table: ddb.Table = self.session.loadTable(tableName=table, dbPath=self.db_path)
 
@@ -196,14 +216,7 @@ class DolphindbDatabase(BaseDatabase):
 
         df: pd.DataFrame = pd.DataFrame.from_records(bars_to_db)
 
-        if product == Product.FUTURES:
-            table_name = self.table_name["bar_futures"]
-
-        elif product == Product.OPTION:
-            table_name = self.table_name["bar_options"]
-
-        else:
-            table_name = self.table_name["bar"]
+        table_name = self.get_table_name("bar", product)
 
         appender: ddb.PartitionedTableAppender = ddb.PartitionedTableAppender(
             self.db_path,
@@ -290,15 +303,15 @@ class DolphindbDatabase(BaseDatabase):
     ) -> list[ContractData]:
 
         contracts = []
+        table_name = self.get_table_name("contract", product)
+        table: ddb.Table = self.session.loadTable(tableName=table_name, dbPath=self.db_path)
+
+        query = table.select('*')
+
+        if symbol:
+            query = query.where(f'symbol="{symbol}"')
+
         if product == Product.FUTURES:
-            table_name = self.table_name["contract_futures"]
-
-            table: ddb.Table = self.session.loadTable(tableName=table_name, dbPath=self.db_path)
-
-            query = table.select('*')
-            if symbol:
-                query = query.where(f'symbol="{symbol}"')
-
             if start:
                 start = start.strftime(DateFmt.dolphin_datetime.value)
                 query = query.where(f'expire_date>={start}')
@@ -330,14 +343,6 @@ class DolphindbDatabase(BaseDatabase):
                 contracts.append(contract)
 
         elif product == Product.OPTION:
-            table_name = self.table_name["contract_options"]
-
-            table: ddb.Table = self.session.loadTable(tableName=table_name, dbPath=self.db_path)
-
-            query = table.select('*')
-            if symbol:
-                query = query.where(f'symbol="{symbol}"')
-
             if start:
                 start = start.strftime(DateFmt.dolphin_datetime.value)
                 query = query.where(f'datetime >= {start}')
@@ -383,15 +388,6 @@ class DolphindbDatabase(BaseDatabase):
                 contracts.append(contract)
 
         else:
-            table_name = self.table_name["contract"]
-
-            table: ddb.Table = self.session.loadTable(tableName=table_name, dbPath=self.db_path)
-
-            query = table.select('*')
-
-            if symbol:
-                query = query.where(f'symbol="{symbol}"')
-
             if product:
                 query = query.where(f'product="{product.value}"')
 
@@ -437,14 +433,7 @@ class DolphindbDatabase(BaseDatabase):
             end: datetime
     ) -> list[BarData]:
         """读取K线数据"""
-        if product == Product.FUTURES:
-            table_name = self.table_name["bar_futures"]
-
-        elif product == Product.OPTION:
-            table_name = self.table_name["bar_options"]
-
-        else:
-            table_name = self.table_name["bar"]
+        table_name = self.get_table_name("bar", product)
 
         # 加载数据表
         table: ddb.Table = self.session.loadTable(tableName=table_name, dbPath=self.db_path)
@@ -578,14 +567,7 @@ class DolphindbDatabase(BaseDatabase):
             end: datetime = None,
     ) -> int:
         """删除K线数据"""
-        if product == Product.FUTURES:
-            table_name = self.table_name["bar_futures"]
-
-        elif product == Product.OPTION:
-            table_name = self.table_name["bar_options"]
-
-        else:
-            table_name = self.table_name["bar"]
+        table_name = self.get_table_name("bar", product)
 
         # 加载数据表
         table: ddb.Table = self.session.loadTable(tableName=table_name, dbPath=self.db_path)

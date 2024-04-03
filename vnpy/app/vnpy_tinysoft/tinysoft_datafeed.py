@@ -4,6 +4,7 @@ from typing import Dict, List, Set, Optional, Callable
 import pandas as pd
 from pyTSL import Client, DoubleToDatetime
 
+from Pandora.constant import SymbolSuffix
 from vnpy.trader.database import get_database
 from vnpy.trader.setting import SETTINGS
 from vnpy.trader.constant import Exchange, Interval, Product, OptionType
@@ -362,6 +363,11 @@ class TinysoftDatafeed(BaseDatafeed):
                 })
 
                 if req.product == Product.FUTURES:
+                    mc_symbol = {contract.product_id + SymbolSuffix.MC for contract in contracts}
+                    mnc_symbol = {contract.product_id + SymbolSuffix.MNC for contract in contracts}
+
+                    contract_info = contract_info.loc[~contract_info['symbol'].isin(mc_symbol | mnc_symbol)]
+
                     data['StockID'] = data['StockID'].str.upper()
                     data = data.merge(contract_info, how='left', left_on='StockID', right_on='name')
 

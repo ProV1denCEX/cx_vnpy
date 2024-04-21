@@ -191,6 +191,27 @@ def create_trade_time_table_script(database: str, table_name: str = "trade_time"
     return script
 
 
+def create_factor_table_script(database: str, table_name: str = "factor"):
+    db_path = "dfs://" + database
+    script = f"""
+    dataPath = "{db_path}"
+    db = database(dataPath)
+
+    bar_columns = ["symbol", "exchange", "datetime", "interval", "factor_id", "factor_name", "factor_value"]
+    bar_type = [SYMBOL, SYMBOL, NANOTIMESTAMP, SYMBOL, SYMBOL, SYMBOL, DOUBLE]
+    bar = table(1:0, bar_columns, bar_type)
+
+    db.createPartitionedTable(
+        bar,
+        "{table_name}",
+        partitionColumns=["datetime"],
+        sortColumns=["symbol", "exchange", "interval", "factor_id", "datetime"],
+        keepDuplicates=LAST)
+    """
+
+    return script
+
+
 SCRIPTS_FUNC = {
     'database': create_database_script,
     'tick': create_tick_table_script,
@@ -202,4 +223,6 @@ SCRIPTS_FUNC = {
     'contract': create_contract_table_script,
     'contract_futures': create_contract_future_table_script,
     'contract_options': create_contract_option_table_script,
+
+    'factor': create_factor_table_script,
 }

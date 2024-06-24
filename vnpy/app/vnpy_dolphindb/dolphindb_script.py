@@ -212,6 +212,28 @@ def create_factor_table_script(database: str, table_name: str = "factor"):
     return script
 
 
+def create_option_greeks_table_script(database: str, table_name: str = "option_greeks"):
+    db_path = "dfs://" + database
+    script = f"""
+    dataPath = "{db_path}"
+    db = database(dataPath)
+
+    bar_columns = ["symbol", "exchange", "datetime", "interval", "iv", "delta", "gamma", "vega", "theta"]
+    bar_type = [SYMBOL, SYMBOL, NANOTIMESTAMP, SYMBOL, DOUBLE, DOUBLE, DOUBLE, DOUBLE, DOUBLE]
+    bar = table(1:0, bar_columns, bar_type)
+
+    db.createPartitionedTable(
+        bar,
+        "{table_name}",
+        partitionColumns=["datetime"],
+        sortColumns=["symbol", "exchange", "interval", "datetime"],
+        keepDuplicates=LAST)
+    """
+
+    return script
+
+
+
 SCRIPTS_FUNC = {
     'database': create_database_script,
     'tick': create_tick_table_script,
@@ -225,4 +247,5 @@ SCRIPTS_FUNC = {
     'contract_options': create_contract_option_table_script,
 
     'factor': create_factor_table_script,
+    'option_greeks': create_option_greeks_table_script
 }

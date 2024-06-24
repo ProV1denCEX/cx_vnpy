@@ -1,16 +1,15 @@
 from datetime import datetime, timedelta
-import exchange_calendars
 
 
-ANNUAL_DAYS = 240
+ANNUAL_DAYS = 252
 
-# Get public holidays data from Shanghai Stock Exchange
-cn_calendar: exchange_calendars.ExchangeCalendar = exchange_calendars.get_calendar('XSHG')
-holidays: list = [x.to_pydatetime() for x in cn_calendar.precomputed_holidays()]
-
-# Filter future public holidays
-start: datetime = datetime.today()
-PUBLIC_HOLIDAYS = [x for x in holidays if x >= start]
+# # Get public holidays data from Shanghai Stock Exchange
+# cn_calendar: exchange_calendars.ExchangeCalendar = exchange_calendars.get_calendar('XSHG')
+# holidays: list = [x.to_pydatetime() for x in cn_calendar.precomputed_holidays()]
+#
+# # Filter future public holidays
+# start: datetime = datetime.today()
+# PUBLIC_HOLIDAYS = [x for x in holidays if x >= start]
 
 
 def calculate_days_to_expiry(option_expiry: datetime) -> int:

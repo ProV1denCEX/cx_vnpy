@@ -47,6 +47,7 @@ SETTINGS: Dict[str, Any] = {
         'contract_options': 'contract_options',
 
         'factor': 'factor',
+        'option_greeks': 'option_greeks',
     },
 
     "account.name": "",

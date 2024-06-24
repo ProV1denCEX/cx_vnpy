@@ -1,6 +1,8 @@
 # flake8: noqa
 import datetime as dt
 
+import numpy as np
+import pandas as pd
 from tqdm.auto import tqdm
 
 from vnpy.event import EventEngine
@@ -9,6 +11,8 @@ from vnpy.trader.constant import Product, Interval, Exchange
 from vnpy.trader.engine import MainEngine
 
 from vnpy.app.vnpy_datamanager import ManagerEngine
+
+from Pandora.helper import TDays
 
 
 def download_future_history():
@@ -58,8 +62,6 @@ def download_future_history():
 
 def download_option_history():
     """"""
-    from Pandora.helper import TDays
-
     event_engine = EventEngine()
 
     main_engine = MainEngine(event_engine)
@@ -150,9 +152,142 @@ def download_option_underlying_history():
     main_engine.close()
 
 
+def calculate_option_greeks(start_date, end_date, output=print, symbol_underlyings=None):
+    from vnpy.app.vnpy_optionmaster.pricing import (
+        black_76, binomial_tree, black_scholes
+    )
+    from vnpy.app.vnpy_optionmaster.time import ANNUAL_DAYS
+
+    from Pandora.helper import TDays
+    from Pandora.data_manager import get_api
+
+    option_model_map = {
+        Product.ETF: black_scholes,
+        Product.INDEX: black_76,
+        Product.FUTURES: binomial_tree,
+    }
+
+    api = get_api()
+
+    calendar = TDays.get_trading_calendar()
+    calendar = calendar.reset_index()
+
+    rf = api.get_risk_free_rate(symbol='IRSHIBOR1Y', begin_date=dt.date(2015, 2, 9))
+    rf.columns = rf.columns.str.lower()
+    rf = rf[['date', 'rate']]
+    rf['rate'] /= 100
+    rf['rate'] = rf['rate'].rolling(2, min_periods=1).mean()
+
+    if symbol_underlyings is None:
+        symbol_underlyings = [
+            '510050',
+            '510300',
+            '510500',
+            '588000',
+            '588080',
+            '159901',
+            '159915',
+        ]
+
+    elif isinstance(symbol_underlyings, str):
+        symbol_underlyings = [symbol_underlyings]
+
+    product = Product.ETF
+    model = option_model_map[product]
+
+    periods = TDays.period(start_date, end_date, None)
+    prev_tday, _, _ = TDays.interval(periods[0], fmt=None, end_hour=0)
+
+    start = dt.datetime.combine(prev_tday, dt.time(hour=21))
+    end = dt.datetime.combine(periods[-1], dt.time(hour=15, minute=30))
+
+    output(f"calculating greeks from {start} to {end}")
+    for underlying_symbol in symbol_underlyings:
+        data = api.get_option_chain(underlying_symbol, product, start, end, None, option_fields=['datetime', 'symbol', 'interval', 'close_price'])
+
+        greeks = []
+        option_chain = data[underlying_symbol]
+        spot = option_chain['bar_underlying'][['datetime', 'exchange', 'interval', 'close_price']]
+        option_price = option_chain['bar_options']
+
+        mat = option_price.merge(spot, on=['datetime', 'interval'], how='left', suffixes=('', '_spot'))
+        mat['date'] = pd.to_datetime(mat['datetime'].dt.date)
+
+        contract_options = option_chain['contract_options'][['symbol', 'datetime', 'size', 'option_type', 'option_strike', 'expire_date']]
+        contract_options = contract_options.merge(calendar, left_on='expire_date', right_on='Date',
+                                                  suffixes=('', '_exp'))
+        contract_options = contract_options.merge(calendar, left_on='datetime', right_on='Date', suffixes=('', '_dt'))
+
+        contract_options['ptm_trade_day'] = contract_options['index'] - contract_options['index_dt']
+
+        info = contract_options[
+            ['symbol', 'datetime', 'size', 'option_type', 'option_strike', 'ptm_trade_day']]
+        info = info.rename(columns={'datetime': 'date'})
+        info['option_type'] = np.where(info.loc[:, 'option_type'] == '看涨期权', 1, -1)
+        info['time_to_expire'] = info.loc[:, 'ptm_trade_day'] / ANNUAL_DAYS
+
+        mat = mat.merge(info, how='left').merge(rf, how='left').dropna()
+        with tqdm(total=len(mat), desc=f"calculating greeks for options of {underlying_symbol}") as pbar:
+            for idx in range(len(mat)):
+                d = mat.iloc[idx, :]
+                iv = model.calculate_impv(
+                    d['close_price'],
+                    d['close_price_spot'],
+                    d['option_strike'],
+                    d['rate'],
+                    d['time_to_expire'],
+                    d['option_type']
+                )
+
+                price, delta, gamma, theta, vega = model.calculate_greeks(
+                    d['close_price_spot'],
+                    d['option_strike'],
+                    d['rate'],
+                    d['time_to_expire'],
+                    iv,
+                    d['option_type']
+                )
+
+                greeks.append(
+                    {
+                        'symbol': d['symbol'],
+                        'exchange': d['exchange'],
+                        'datetime': d['datetime'],
+                        'interval': d['interval'],
+                        'iv': iv,
+                        'delta': delta,
+                        'gamma': gamma,
+                        'vega': vega,
+                        'theta': theta,
+                    }
+                )
+
+                pbar.update()
+
+        if greeks:
+            greeks = pd.DataFrame(greeks)
+            table_name = api.dolphindb.get_table_name("option_greeks", Product.OPTION)
+            api.dolphindb.upsert(table_name, greeks, on='datetime')
+
+
 if __name__ == "__main__":
     # download_option_history()
 
-    download_option_underlying_history()
+    # calculate_option_greeks('2015-02-09', '2024-06-04', symbol_underlyings='510050')
+    # calculate_option_greeks('2015-02-09', '2024-06-04', symbol_underlyings='510300')
+    # start = dt.datetime(2024, 6, 20)
+    # end = dt.datetime.now()
+    #
+    # start_ = start
+    # while start_ <= end:
+    #     end_ = start_ + dt.timedelta(days=30)
+    #
+    #     print(f"calculating greeks from {start_} to {end_}")
+    #     calculate_option_greeks(start_, end_)
+    #
+    #     start_ = end_
 
-    pass
+    start, end, _ = TDays.interval(end_hour=0, fmt=None)
+
+    calculate_option_greeks(start, end)
+

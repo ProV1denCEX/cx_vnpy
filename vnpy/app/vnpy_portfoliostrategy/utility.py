@@ -1,7 +1,9 @@
 from datetime import datetime
 from typing import Callable, Dict, Optional
 
+from vnpy.trader.constant import Direction
 from vnpy.trader.object import BarData, TickData, Interval
+from vnpy.trader.utility import ArrayManager
 
 
 class PortfolioBarGenerator:
@@ -242,3 +244,46 @@ class PortfolioBarGenerator:
                 self.interval_count = 0
                 self.on_window_bars(self.window_bars)
                 self.window_bars = {}
+
+
+class ATRExitHelper(object):
+    def __init__(self, am: ArrayManager):
+        self.am = am
+
+        self.open_price = 0.0
+        self.current_price = 0.0
+        self.direction: Direction = None
+        self.best_price = 0.0
+
+    def reset(self):
+        self.open_price = 0.0
+        self.current_price = 0.0
+        self.direction: Direction = None
+        self.best_price = 0.0
+
+    def on_bar(self, bar: BarData):
+        if self.direction == Direction.LONG:
+            self.current_price = bar.close_price
+            self.best_price = max(self.best_price, bar.high_price)
+
+        elif self.direction == Direction.SHORT:
+            self.current_price = bar.close_price
+            self.best_price = min(self.best_price, bar.low_price)
+
+    def on_target(self, price: float, direction: Direction):
+        self.open_price = price
+        self.current_price = price
+        self.direction = direction
+        self.best_price = price
+
+    def check_stoploss(self, atr_window, atr_multiplier):
+        if not self.am.inited:
+            return
+
+        atr = self.am.atr(atr_window, False)
+
+        if self.direction == Direction.LONG:
+            return self.best_price - self.current_price > atr * atr_multiplier
+
+        elif self.direction == Direction.SHORT:
+            return self.current_price - self.best_price > atr * atr_multiplier

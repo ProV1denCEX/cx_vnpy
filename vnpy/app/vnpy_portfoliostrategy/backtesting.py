@@ -2,7 +2,7 @@ from collections import defaultdict
 from datetime import date, datetime, timedelta
 from typing import Dict, List, Set, Tuple, Optional
 from functools import lru_cache, partial
-from copy import copy
+from copy import copy, deepcopy
 import traceback
 
 import numpy as np
@@ -13,7 +13,7 @@ from tqdm.auto import tqdm
 
 from vnpy.trader.constant import Direction, Offset, Interval, Status, Product
 from vnpy.trader.database import get_database, BaseDatabase
-from vnpy.trader.object import OrderData, TradeData, BarData
+from vnpy.trader.object import OrderData, TradeData, BarData, ContractData
 from vnpy.trader.utility import round_to, extract_vt_symbol
 from vnpy.trader.optimize import (
     OptimizationSetting,
@@ -42,6 +42,8 @@ class BacktestingEngine:
     def __init__(self) -> None:
         """构造函数"""
         self.vt_symbols: List[str] = []
+        self.contracts: Dict[str, ContractData] = {}
+
         self.start: datetime = None
         self.end: datetime = None
 
@@ -129,6 +131,10 @@ class BacktestingEngine:
             self, strategy_class.__name__, copy(self.vt_symbols), setting
         )
 
+    def get_contract(self, strategy: StrategyTemplate, vt_symbol: str) -> Optional[ContractData]:
+        """获取合约价格跳动"""
+        return self.contracts.get(vt_symbol)
+
     def load_data(self) -> None:
         """加载历史数据"""
         self.output("开始加载历史数据")
@@ -145,9 +151,13 @@ class BacktestingEngine:
         self.dts.clear()
 
         for vt_symbol in self.vt_symbols:
+            contract = self.get_contract(None, vt_symbol)
+            if not contract: continue
+
             data: List[BarData] = load_bar_data(
                 vt_symbol,
                 self.interval,
+                contract.product,
                 self.start,
                 self.end
             )
@@ -900,7 +910,10 @@ def evaluate(
     priceticks: Dict[str, float],
     capital: int,
     end: datetime,
-    setting: dict
+    setting: dict,
+
+    dts: Set[datetime],
+    history_data: Dict[Tuple, BarData],
 ) -> tuple:
     """包装回测相关函数以供进程池内运行"""
     engine: BacktestingEngine = BacktestingEngine()
@@ -918,13 +931,17 @@ def evaluate(
     )
 
     engine.add_strategy(strategy_class, setting)
-    engine.load_data()
+    # engine.load_data()
+
+    engine.dts = dts
+    engine.history_data = history_data
+
     engine.run_backtesting()
     engine.calculate_result()
     statistics: dict = engine.calculate_statistics(output=False)
 
     target_value: float = statistics[target_name]
-    return (str(setting), target_value, statistics)
+    return setting, target_value, statistics
 
 
 def wrap_evaluate(engine: BacktestingEngine, target_name: str) -> callable:
@@ -941,7 +958,10 @@ def wrap_evaluate(engine: BacktestingEngine, target_name: str) -> callable:
         engine.sizes,
         engine.priceticks,
         engine.capital,
-        engine.end
+        engine.end,
+
+        dts=engine.dts,
+        history_data=engine.history_data
     )
     return func
 

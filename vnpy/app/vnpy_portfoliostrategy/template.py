@@ -12,8 +12,6 @@ from vnpy.trader.constant import Interval, Direction, Offset
 from vnpy.trader.object import BarData, TickData, OrderData, TradeData, ContractData
 from vnpy.trader.utility import virtual
 
-from Pandora.data_manager import get_api
-
 from .base import EngineType
 from ...trader.setting import SETTINGS
 
@@ -375,6 +373,7 @@ class StrategyTemplate(ABC):
             portfolios.append(portfolio)
 
         portfolios = pd.DataFrame(portfolios)
+        from Pandora.data_manager import get_api
 
         api = get_api(real_trade=False)
         api.save_strategy_position(portfolios, False)
@@ -385,6 +384,7 @@ class StrategyTemplate(ABC):
             investor_id: str = SETTINGS["account.investorid"],
     ):
         mode = self.get_engine_type().value
+        from Pandora.data_manager import get_api
 
         api = get_api(real_trade=False)
         portfolio = api.get_strategy_portfolio(account_name, investor_id, self.strategy_name, mode)

@@ -11,6 +11,7 @@ from typing import Callable, Dict, Tuple, Union, Optional
 from decimal import Decimal
 from math import floor, ceil
 
+import bottleneck as bn
 import numpy as np
 import pandas as pd
 import talib
@@ -800,6 +801,15 @@ class ArrayManager(object):
         if array:
             return result
         return result.iat[-1]
+
+    def argmin(self, n: int, array: bool = False) -> Union[float, np.ndarray]:
+        """
+        Argmin.
+        """
+        result: np.ndarray = bn.move_argmin(self.close, window=n, min_count=1, axis=0) / n
+        if array:
+            return result
+        return result[-1]
 
     def macd(
         self,

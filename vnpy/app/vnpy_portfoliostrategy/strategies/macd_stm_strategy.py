@@ -14,7 +14,7 @@ from vnpy.app.vnpy_portfoliostrategy import StrategyTemplate, StrategyEngine
 from vnpy.app.vnpy_portfoliostrategy.utility import PortfolioBarGenerator, ATRExitHelper
 
 
-class TSStrategy(StrategyTemplate):
+class MACDSTMStrategy(StrategyTemplate):
     author = "XCX"
 
     capital = 1e8

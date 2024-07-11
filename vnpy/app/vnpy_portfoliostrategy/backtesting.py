@@ -2,10 +2,13 @@ from collections import defaultdict
 from datetime import date, datetime, timedelta
 from typing import Dict, List, Set, Tuple, Optional
 from functools import lru_cache, partial
-from copy import copy, deepcopy
+from copy import copy
 import traceback
 
+import datetime as dt
 import numpy as np
+import pandas as pd
+
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from pandas import DataFrame
@@ -434,6 +437,65 @@ class BacktestingEngine:
 
         self.output("策略统计指标计算完成")
         return statistics
+
+    def describe_trades(self):
+        trade_info = []
+        for trade in self.trades.values():
+            trade_info.append(
+                {
+                    'symbol': trade.symbol,
+                    'direction': trade.direction,
+                    'offset': trade.offset,
+                    'price': trade.price,
+                    'volume': trade.volume,
+                    'datetime': trade.datetime,
+                }
+            )
+
+        trade_info = pd.DataFrame(trade_info)
+
+        rounds = []
+        for symbol, group in trade_info.groupby('symbol'):
+            round_ = pd.DataFrame(columns=['symbol', 'direction', 'open_time', 'open_price', 'close_time', 'close_price', 'volume', 'pnl', 'hp'])
+            idx = 0
+
+            try:
+                for i in range(0, len(group), 2):
+                    open_trade = group.iloc[i, :]
+                    close_trade = group.iloc[i + 1, :]
+
+                    direction = 1 if open_trade['direction'] == Direction.LONG else -1
+
+                    round_.loc[idx, 'symbol'] = symbol
+                    round_.loc[idx, 'direction'] = open_trade['direction']
+                    round_.loc[idx, 'open_time'] = open_trade['datetime']
+                    round_.loc[idx, 'open_price'] = open_trade['price']
+                    round_.loc[idx, 'close_time'] = close_trade['datetime']
+                    round_.loc[idx, 'close_price'] = close_trade['price']
+                    round_.loc[idx, 'volume'] = open_trade['volume']
+                    round_.loc[idx, 'pnl'] = (close_trade['price'] - open_trade['price']) / open_trade['price'] * direction
+                    round_.loc[idx, 'hp'] = (close_trade['datetime'] - open_trade['datetime']).total_seconds() / dt.timedelta(days=1).total_seconds()
+
+                    idx += 1
+
+            except IndexError:
+                pass
+
+            rounds.append(round_)
+
+        rounds = pd.concat(rounds)
+
+        desc = rounds[['hp', 'pnl']].astype(float).describe(include='all')
+
+        loc = rounds['direction'] == Direction.LONG
+        desc_long = rounds[loc][['hp', 'pnl']].astype(float).describe(include='all')
+        desc = desc.merge(desc_long, suffixes=('', '_long'), left_index=True, right_index=True)
+
+        loc = rounds['direction'] == Direction.SHORT
+        desc_short = rounds[loc][['hp', 'pnl']].astype(float).describe(include='all')
+        desc = desc.merge(desc_short, suffixes=('', '_short'), left_index=True, right_index=True)
+
+        return desc, rounds
 
     def show_chart(self, df: DataFrame = None) -> None:
         """显示图表"""

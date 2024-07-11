@@ -792,14 +792,14 @@ class ArrayManager(object):
             return result
         return result[-1]
 
-    def stm(self, n: int, array: bool = False) -> Union[float, pd.Series]:
+    def stm(self, n: int, array: bool = False) -> Union[float, np.ndarray]:
         hh = pd.Series(self.high).rolling(n, min_periods=1).max()
         ll = pd.Series(self.low).rolling(n, min_periods=1).min()
 
         result: pd.Series = ((self.close * 2 - (hh + ll)).ewm(span=5).mean()) / (hh - ll).ewm(span=5).mean()
 
         if array:
-            return result
+            return result.values
         return result.iat[-1]
 
     def argmin(self, n: int, array: bool = False) -> Union[float, np.ndarray]:

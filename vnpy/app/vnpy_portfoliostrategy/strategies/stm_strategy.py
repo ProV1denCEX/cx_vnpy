@@ -19,19 +19,27 @@ class STMStrategy(StrategyTemplate):
     capital = 1e8
     interval = Interval.MINUTE_15
 
-    stm_window = 500
+    window = 500
 
-    qtl_long_window = stm_window
+    vol_window = 100
+    vol_target = 0.45
+    vol_exit = False
+
+    qtl_long_window = window
     enter_long_qtl = 0.9
     exit_long_qtl = 0.5
 
-    qtl_short_window = stm_window
+    qtl_short_window = window
     enter_short_qtl = 0.1
     exit_short_qtl = 0.5
 
     parameters = [
         "capital",
-        "stm_window",
+        "window",
+
+        "vol_window",
+        "vol_target",
+        "vol_exit",
 
         "qtl_long_window",
         "enter_long_qtl",
@@ -54,11 +62,11 @@ class STMStrategy(StrategyTemplate):
         """构造函数"""
         super().__init__(strategy_engine, strategy_name, vt_symbols, setting)
 
-        self.stm_data: Dict[str, float] = {}
+        self.am_size = self.window
+        self.prepare_trade()
 
         # 创建每个合约的ArrayManager
         self.ams: Dict[str, ArrayManager] = {}
-        self.am_size = self.stm_window + max(self.qtl_short_window, self.qtl_long_window) + 100
         for vt_symbol in self.vt_symbols:
             self.ams[vt_symbol] = ArrayManager(self.am_size)
 
@@ -67,6 +75,10 @@ class STMStrategy(StrategyTemplate):
 
         if self.get_engine_type() == EngineType.SIGNAL:
             self.pos_data = self.target_data
+
+    def prepare_trade(self) -> None:
+        self.qtl_long_window = self.qtl_short_window = self.window
+        self.am_size = max(self.qtl_long_window, self.qtl_short_window) * 3 + max(self.window, self.vol_window) * 3 + 100
 
     def on_init(self) -> None:
         """策略初始化回调"""
@@ -89,7 +101,6 @@ class STMStrategy(StrategyTemplate):
     def on_stop(self) -> None:
         """策略停止回调"""
         self.update_portfolio()
-        self.save_strategy_cache()
 
         self.write_log("策略停止")
 
@@ -128,37 +139,47 @@ class STMStrategy(StrategyTemplate):
             if not am.inited:
                 continue
 
-            stm = am.stm(self.stm_window, array=True)
+            std = self.get_volatility(am)
 
-            self.stm_data[vt_symbol] = stm.iat[-1]
+            if self.vol_exit and std > self.vol_target:
+                self.set_target(vt_symbol, 0)
+
+                continue
+
+            stm = am.stm(self.window, array=True)
+            stm = pd.Series(stm)
+
+            factor_value = stm.iat[-1]
+            prev_value = stm.iat[-2]
 
             current_pos = self.get_pos(vt_symbol)
+
             if current_pos == 0:
-                if self.stm_data[vt_symbol] > stm.iloc[-self.qtl_long_window:].quantile(self.enter_long_qtl):
+                if factor_value > stm.iloc[-self.qtl_long_window:].quantile(self.enter_long_qtl) > prev_value:
                     target_size = self.get_target_size_by_std_minus(vt_symbol)
                     self.set_target(vt_symbol, target_size)
 
-                elif self.stm_data[vt_symbol] < stm.iloc[-self.qtl_short_window:].quantile(self.enter_short_qtl):
+                elif factor_value < stm.iloc[-self.qtl_short_window:].quantile(self.enter_short_qtl) < prev_value:
                     target_size = self.get_target_size_by_std_minus(vt_symbol)
 
                     self.set_target(vt_symbol, -target_size)
 
             elif current_pos > 0:
-                if self.stm_data[vt_symbol] < stm.iloc[-self.qtl_short_window:].quantile(self.enter_short_qtl):
+                if factor_value < stm.iloc[-self.qtl_short_window:].quantile(self.enter_short_qtl) < prev_value:
                     target_size = self.get_target_size_by_std_minus(vt_symbol)
 
                     self.set_target(vt_symbol, -target_size)
 
-                elif self.stm_data[vt_symbol] < stm.iloc[-self.qtl_long_window:].quantile(self.exit_long_qtl):
+                elif factor_value < stm.iloc[-self.qtl_long_window:].quantile(self.exit_long_qtl) < prev_value:
                     self.set_target(vt_symbol, 0)
 
             elif current_pos < 0:
-                if self.stm_data[vt_symbol] > stm.iloc[-self.qtl_long_window:].quantile(self.enter_long_qtl):
+                if factor_value > stm.iloc[-self.qtl_long_window:].quantile(self.enter_long_qtl) > prev_value:
                     target_size = self.get_target_size_by_std_minus(vt_symbol)
 
                     self.set_target(vt_symbol, target_size)
 
-                elif self.stm_data[vt_symbol] > stm.iloc[-self.qtl_short_window:].quantile(self.exit_short_qtl):
+                elif factor_value > stm.iloc[-self.qtl_short_window:].quantile(self.exit_short_qtl) > prev_value:
                     self.set_target(vt_symbol, 0)
 
         engine_type = self.get_engine_type()
@@ -173,22 +194,11 @@ class STMStrategy(StrategyTemplate):
     #         price: float = reference - self.get_pricetick(vt_symbol) * 0
     #
     #     return price
+    def get_volatility(self, am: ArrayManager):
+        roc = am.roc(1, True)
+        std = np.std(np.log(1 + roc / 100)[-self.vol_window:]) * np.sqrt(252 * 23)
 
-    def save_strategy_cache(
-            self,
-    ):
-        cache = {}
-        for vt_symbol, am in self.ams.items():
-            if not am.inited:
-                continue
-
-            stm = am.stm(self.stm_window, array=True)
-            stm.index = am.datetime_array
-
-            cache[vt_symbol] = stm
-
-        cache = pd.DataFrame(cache)
-        cache.to_csv(self.strategy_name + f"_cache_{datetime.now().strftime('%Y%m%d%H%M%S')}.csv")
+        return std
 
     def get_target_size_by_std_minus(self, vt_symbol: str, param=500, day_count=23, n=3, std_min=0.1, std_max=0.45) -> int:
         am = self.ams[vt_symbol]

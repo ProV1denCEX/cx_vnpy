@@ -3,6 +3,7 @@ from datetime import datetime, time
 
 import numpy as np
 import pandas as pd
+import talib
 
 from vnpy.app.vnpy_portfoliostrategy.base import EngineType
 from vnpy.trader.setting import SETTINGS
@@ -26,11 +27,14 @@ class TSStrategy(StrategyTemplate):
 
     vol_window = 100
     vol_target = 0.45
+    vol_exit = True
 
     bband_width = 2
     stm_width = 0.8
 
     ls_imba = .75
+
+    trade_method = "BBAND"
 
     parameters = [
         "capital",
@@ -40,11 +44,14 @@ class TSStrategy(StrategyTemplate):
 
         "vol_window",
         "vol_target",
+        "vol_exit",
 
         "bband_width",
         "stm_width",
 
         "ls_imba",
+
+        "trade_method",
     ]
     variables = [
     ]
@@ -59,11 +66,13 @@ class TSStrategy(StrategyTemplate):
         """构造函数"""
         super().__init__(strategy_engine, strategy_name, vt_symbols, setting)
 
-        self.bband_window = self.atr_window = self.ma_window = self.stm_window = self.window
+        self.am_size = self.bband_window = self.atr_window = self.ma_window = self.stm_window = self.window
+        self._trade_method = None
+
+        self.prepare_trade()
 
         # 创建每个合约的ArrayManager
         self.ams: Dict[str, ArrayManager] = {}
-        self.am_size = max(self.bband_window, self.ma_window) + max(self.window, self.atr_window, self.vol_window) * 3 + 100
 
         self.atr_helpers: Dict[str, ATRExitHelper] = {}
         for vt_symbol in self.vt_symbols:
@@ -75,6 +84,28 @@ class TSStrategy(StrategyTemplate):
 
         if self.get_engine_type() == EngineType.SIGNAL:
             self.pos_data = self.target_data
+
+    def prepare_trade(self):
+        if self.trade_method == "BBAND":
+            self.bband_window = self.window
+            self.am_size = self.bband_window * 3 + max(self.window, self.atr_window, self.vol_window) * 3 + 100
+            self._trade_method = self.trade_by_bband
+
+        elif self.trade_method == "STM":
+            self.stm_window = self.window
+            self.am_size = self.stm_window * 3 + max(self.window, self.atr_window, self.vol_window) * 3 + 100
+            self._trade_method = self.trade_by_stm
+
+        elif self.trade_method == "CROSS":
+            self.am_size = max(self.window, self.atr_window, self.vol_window) * 3 + 100
+            self._trade_method = self.trade_by_cross
+
+        elif self.trade_method == "CROSS_MA":
+            self.am_size = self.ma_window * 3 + max(self.window, self.atr_window, self.vol_window) * 3 + 100
+            self._trade_method = self.trade_by_cross_ma
+
+        else:
+            raise NotImplementedError(f"Unknown trade method {self.trade_method}")
 
     def on_init(self) -> None:
         """策略初始化回调"""
@@ -146,7 +177,7 @@ class TSStrategy(StrategyTemplate):
             std = self.get_volatility(am)
 
             # if current_pos == 0:
-            if std > self.vol_target:
+            if self.vol_exit and std > self.vol_target:
                 self.set_target(vt_symbol, 0)
                 atr_helper.reset()
 
@@ -182,8 +213,11 @@ class TSStrategy(StrategyTemplate):
 
     def get_factor(self, am: ArrayManager):
         factor, _, _ = am.macd(self.window, int(self.window / 12 * 26), int(self.window / 12 * 9), array=True)
+
         # _, factor, _ = am.macd(self.window, int(self.window / 12 * 26), int(self.window / 12 * 9), array=True)
         # factor = am.argmin(self.window, array=True)
+
+        factor = talib.LINEARREG(factor, self.window)
 
         return factor
 
@@ -194,10 +228,7 @@ class TSStrategy(StrategyTemplate):
         return std
 
     def get_signal(self, am: ArrayManager):
-        return self.trade_by_stm(am)
-        # return self.trade_by_cross(am)
-        # return self.trade_by_cross_ma(am)
-        # return self.trade_by_bband(am)
+        return self._trade_method(am)
 
     # def calculate_price(self, vt_symbol: str, direction: Direction, reference: float) -> float:
     #     """计算调仓委托价格（支持按需重载实现）"""
@@ -214,6 +245,20 @@ class TSStrategy(StrategyTemplate):
             investor_id: str = SETTINGS["account.investorid"],
     ):
         print("Dev Stage, No save")
+
+    def trade_by_qtl_imba(self, am: ArrayManager):
+        factor = self.get_factor(am)
+
+        if factor[-1] > factor.iloc[-self.qtl_long_window:].quantile(self.enter_long_qtl) > factor[-2]:
+            direction = Direction.LONG
+
+        elif factor[-1] < factor.iloc[-self.qtl_short_window:].quantile(self.enter_short_qtl) < factor[-2]:
+            direction = Direction.SHORT
+
+        else:
+            direction = None
+
+        return direction
 
     def trade_by_stm(self, am: ArrayManager):
         factor = self.get_factor(am)

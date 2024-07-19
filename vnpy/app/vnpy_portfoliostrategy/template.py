@@ -391,7 +391,6 @@ class StrategyTemplate(ABC):
 
         portfolio.groupby(['Symbol'])
 
-
     @property
     def trade_date(self):
         return self.strategy_engine.trade_date

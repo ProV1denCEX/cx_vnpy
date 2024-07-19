@@ -100,7 +100,9 @@ class STMStrategy(StrategyTemplate):
 
     def on_stop(self) -> None:
         """策略停止回调"""
-        self.update_portfolio()
+        engine_type = self.get_engine_type()
+        if engine_type == EngineType.SIGNAL:
+            self.save_strategy_portfolio()
 
         self.write_log("策略停止")
 
@@ -147,39 +149,38 @@ class STMStrategy(StrategyTemplate):
                 continue
 
             stm = am.stm(self.window, array=True)
-            stm = pd.Series(stm)
 
-            factor_value = stm.iat[-1]
-            prev_value = stm.iat[-2]
+            factor_value = stm[-1]
+            prev_value = stm[-2]
 
             current_pos = self.get_pos(vt_symbol)
 
             if current_pos == 0:
-                if factor_value > stm.iloc[-self.qtl_long_window:].quantile(self.enter_long_qtl) > prev_value:
+                if factor_value > np.quantile(stm[-self.qtl_long_window:], self.enter_long_qtl) > prev_value:
                     target_size = self.get_target_size_by_std_minus(vt_symbol)
                     self.set_target(vt_symbol, target_size)
 
-                elif factor_value < stm.iloc[-self.qtl_short_window:].quantile(self.enter_short_qtl) < prev_value:
+                elif factor_value < np.quantile(stm[-self.qtl_short_window:], self.enter_short_qtl) < prev_value:
                     target_size = self.get_target_size_by_std_minus(vt_symbol)
 
                     self.set_target(vt_symbol, -target_size)
 
             elif current_pos > 0:
-                if factor_value < stm.iloc[-self.qtl_short_window:].quantile(self.enter_short_qtl) < prev_value:
+                if factor_value < np.quantile(stm[-self.qtl_short_window:], self.enter_short_qtl) < prev_value:
                     target_size = self.get_target_size_by_std_minus(vt_symbol)
 
                     self.set_target(vt_symbol, -target_size)
 
-                elif factor_value < stm.iloc[-self.qtl_long_window:].quantile(self.exit_long_qtl) < prev_value:
+                elif factor_value < np.quantile(stm[-self.qtl_long_window:], self.exit_long_qtl) < prev_value:
                     self.set_target(vt_symbol, 0)
 
             elif current_pos < 0:
-                if factor_value > stm.iloc[-self.qtl_long_window:].quantile(self.enter_long_qtl) > prev_value:
+                if factor_value > np.quantile(stm[-self.qtl_long_window:], self.enter_long_qtl) > prev_value:
                     target_size = self.get_target_size_by_std_minus(vt_symbol)
 
                     self.set_target(vt_symbol, target_size)
 
-                elif factor_value > stm.iloc[-self.qtl_short_window:].quantile(self.exit_short_qtl) > prev_value:
+                elif factor_value > np.quantile(stm[-self.qtl_short_window:], self.exit_short_qtl) > prev_value:
                     self.set_target(vt_symbol, 0)
 
         engine_type = self.get_engine_type()

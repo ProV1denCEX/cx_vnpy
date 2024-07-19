@@ -793,14 +793,14 @@ class ArrayManager(object):
         return result[-1]
 
     def stm(self, n: int, array: bool = False) -> Union[float, np.ndarray]:
-        hh = pd.Series(self.high).rolling(n, min_periods=1).max()
-        ll = pd.Series(self.low).rolling(n, min_periods=1).min()
+        hh = bn.move_max(self.high, n, 1, axis=0)
+        ll = bn.move_min(self.low, n, 1, axis=0)
 
-        result: pd.Series = ((self.close * 2 - (hh + ll)).ewm(span=5).mean()) / (hh - ll).ewm(span=5).mean()
+        result = talib.EMA((self.close * 2 - (hh + ll)), 5) / talib.EMA(hh - ll + 1e-8, 5)
 
         if array:
-            return result.values
-        return result.iat[-1]
+            return result
+        return result[-1]
 
     def argmin(self, n: int, array: bool = False) -> Union[float, np.ndarray]:
         """

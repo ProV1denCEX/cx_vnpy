@@ -158,14 +158,14 @@ class MACDBBANDStrategy(StrategyTemplate):
                     # bband_width_s = factor[-self.bband_window * 2:].std()
 
                     if factor_value > bband_mid + self.bband_width * bband_width > prev_value:
-                        target_size = self.get_target_size_by_std_minus(vt_symbol, self.vol_window, std_max=self.vol_target)
+                        target_size = self.get_target_size(vt_symbol)
 
                         self.set_target(vt_symbol, target_size)
 
                         atr_helper.on_target(self.last_prices[vt_symbol], Direction.LONG)
 
                     elif factor_value < bband_mid - self.bband_width * bband_width * self.ls_imba < prev_value:
-                        target_size = self.get_target_size_by_std_minus(vt_symbol, self.vol_window, std_max=self.vol_target)
+                        target_size = self.get_target_size(vt_symbol)
 
                         self.set_target(vt_symbol, -target_size)
 
@@ -189,6 +189,9 @@ class MACDBBANDStrategy(StrategyTemplate):
         _, factor, _ = am.macd(self.window, int(self.window / 12 * 26), int(self.window / 12 * 9), array=True)
 
         return factor
+
+    def get_target_size(self, vt_symbol: str) -> int:
+        return self.get_target_size_by_std_minus(vt_symbol, self.vol_window, std_max=self.vol_target)
 
     # def calculate_price(self, vt_symbol: str, direction: Direction, reference: float) -> float:
     #     """计算调仓委托价格（支持按需重载实现）"""
@@ -218,5 +221,62 @@ class MACDBBANDStrategy(StrategyTemplate):
         weight *= 1 / len([i for i in self.ams.values() if i.inited])
 
         size = int(self.capital * weight / self.get_size(vt_symbol) / am.close[-1])
+
+        return size
+
+
+class MACDBBANDX3DStrategy(MACDBBANDStrategy):
+    def __init__(
+            self,
+            strategy_engine: StrategyEngine,
+            strategy_name: str,
+            vt_symbols: List[str],
+            setting: dict
+    ) -> None:
+        """构造函数"""
+        super().__init__(strategy_engine, strategy_name, vt_symbols, setting)
+
+        self.vol_window = self.window * 2
+
+    def get_target_size(self, vt_symbol: str) -> int:
+        # return self.get_target_size_by_3d(vt_symbol, self.vol_window, n=3)
+        return self.get_target_size_by_std_minus(vt_symbol, self.vol_window)
+
+    def get_target_size_by_3d(self, vt_symbol: str, param=500, day_count=23, n=3, thres_min=0.25, thres_max=0.65) -> int:
+        am = self.ams[vt_symbol]
+
+        roc = am.roc(1, True)
+        std = np.std(np.log(1 + roc / 100)[-param:]) * np.sqrt(252 * day_count)
+
+        r_mat = {}
+        for k, am in self.ams.items():
+            if am.count > 100:
+                roc = am.roc(1, True)
+                r = np.log(1 + roc / 100)
+                dt_ = am.datetime_array
+
+                loc = dt_ != 0
+
+                r_mat[k] = pd.Series(r[loc], index=dt_[loc])
+
+        corr = pd.DataFrame(r_mat).iloc[-param:, :].corr().abs().mean().at[vt_symbol]
+
+        weight = std + corr
+        weight = (thres_max - weight) / (thres_max - thres_min)
+
+        # factor = self.get_factor(am)[-1]
+        # std_ = np.std(am.close_array[-param:])
+        # factor_weight = factor / std_ / 3
+        #
+        # weight = weight * 2 / 3 + np.abs(factor_weight) / 3
+
+        if n:
+            weight = (weight * (n - 1) + 1) / n
+            weight = min(max(weight, 1 / n), 1)
+
+        weight *= 1 / len([i for i in self.ams.values() if i.inited])
+
+        # size = int(self.capital * weight / self.get_size(vt_symbol) / am.close[-1])
+        size = (self.capital * weight / self.get_size(vt_symbol) / am.close[-1])
 
         return size

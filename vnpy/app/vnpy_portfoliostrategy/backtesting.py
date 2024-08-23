@@ -1002,8 +1002,10 @@ def evaluate(
     engine.calculate_result()
     statistics: dict = engine.calculate_statistics(output=False)
 
+    desc, rounds = engine.describe_trades()
+
     target_value: float = statistics[target_name]
-    return setting, target_value, statistics
+    return setting, target_value, statistics, rounds
 
 
 def wrap_evaluate(engine: BacktestingEngine, target_name: str) -> callable:

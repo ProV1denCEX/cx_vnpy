@@ -225,7 +225,25 @@ class MACDBBANDStrategy(StrategyTemplate):
         return size
 
 
-class MACDBBANDX3DStrategy(MACDBBANDStrategy):
+class MACDBBANDX2DStrategy(MACDBBANDStrategy):
+    # weighting_method = 0
+    #
+    # parameters = [
+    #     "capital",
+    #     "window",
+    #
+    #     "atr_multiplier",
+    #
+    #     "vol_window",
+    #     "vol_target",
+    #
+    #     "bband_width",
+    #
+    #     "ls_imba",
+    #
+    #     "weighting_method",
+    # ]
+
     def __init__(
             self,
             strategy_engine: StrategyEngine,
@@ -239,21 +257,33 @@ class MACDBBANDX3DStrategy(MACDBBANDStrategy):
         self.vol_window = self.window * 2
 
     def get_target_size(self, vt_symbol: str) -> int:
-        # return self.get_target_size_by_3d(vt_symbol, self.vol_window, n=3)
-        return self.get_target_size_by_std_minus(vt_symbol, self.vol_window)
+        return self.get_target_size_by_2d(vt_symbol, self.vol_window, n=5)
 
-    def get_target_size_by_3d(self, vt_symbol: str, param=500, day_count=23, n=3, thres_min=0.25, thres_max=0.65) -> int:
+        # n = 5
+        # if self.weighting_method == 1:
+        #     return self.get_target_size_by_2d(vt_symbol, self.vol_window, n=n)
+        #
+        # elif self.weighting_method == 2:
+        #     return self.get_target_size_by_3d(vt_symbol, self.vol_window, n=n)
+        #
+        # elif self.weighting_method == 3:
+        #     return self.get_target_size_by_3m(vt_symbol, self.vol_window, n=n)
+        #
+        # else:
+        #     return self.get_target_size_by_3d(vt_symbol, self.vol_window, n=n)
+
+    def get_target_size_by_2d(self, vt_symbol: str, param=500, day_count=23, n=3, thres_min=0.25, thres_max=0.65) -> int:
         am = self.ams[vt_symbol]
 
         roc = am.roc(1, True)
         std = np.std(np.log(1 + roc / 100)[-param:]) * np.sqrt(252 * day_count)
 
         r_mat = {}
-        for k, am in self.ams.items():
-            if am.count > 100:
-                roc = am.roc(1, True)
+        for k, am_ in self.ams.items():
+            if am_.count > 100:
+                roc = am_.roc(1, True)
                 r = np.log(1 + roc / 100)
-                dt_ = am.datetime_array
+                dt_ = am_.datetime_array
 
                 loc = dt_ != 0
 
@@ -264,11 +294,40 @@ class MACDBBANDX3DStrategy(MACDBBANDStrategy):
         weight = std + corr
         weight = (thres_max - weight) / (thres_max - thres_min)
 
-        # factor = self.get_factor(am)[-1]
-        # std_ = np.std(am.close_array[-param:])
-        # factor_weight = factor / std_ / 3
-        #
-        # weight = weight * 2 / 3 + np.abs(factor_weight) / 3
+        if n:
+            weight = (weight * (n - 1) + 1) / n
+            weight = min(max(weight, 1 / n), 1)
+
+        weight *= 1 / len([i for i in self.ams.values() if i.inited])
+
+        size = int(self.capital * weight / self.get_size(vt_symbol) / am.close[-1])
+
+        return size
+
+    def get_target_size_by_3d(self, vt_symbol: str, param=500, day_count=23, n=3, thres_min=0.25, thres_max=0.65) -> int:
+        am = self.ams[vt_symbol]
+
+        roc = am.roc(1, True)
+        std = np.std(np.log(1 + roc / 100)[-param:]) * np.sqrt(252 * day_count)
+
+        r_mat = {}
+        for k, am_ in self.ams.items():
+            if am_.count > 100:
+                roc = am_.roc(1, True)
+                r = np.log(1 + roc / 100)
+                dt_ = am_.datetime_array
+
+                loc = dt_ != 0
+
+                r_mat[k] = pd.Series(r[loc], index=dt_[loc])
+
+        corr = pd.DataFrame(r_mat).iloc[-param:, :].corr().abs().mean().at[vt_symbol]
+
+        weight = std + corr
+        weight = (thres_max - weight) / (thres_max - thres_min)
+
+        factor_weight = am.stm(param * 2, False)
+        weight = weight * 2 / 3 + np.abs(factor_weight) / 3
 
         if n:
             weight = (weight * (n - 1) + 1) / n
@@ -276,7 +335,45 @@ class MACDBBANDX3DStrategy(MACDBBANDStrategy):
 
         weight *= 1 / len([i for i in self.ams.values() if i.inited])
 
-        # size = int(self.capital * weight / self.get_size(vt_symbol) / am.close[-1])
-        size = (self.capital * weight / self.get_size(vt_symbol) / am.close[-1])
+        size = int(self.capital * weight / self.get_size(vt_symbol) / am.close[-1])
 
         return size
+
+    def get_target_size_by_3m(self, vt_symbol: str, param=500, day_count=23, n=3, thres_min=0.25, thres_max=0.65) -> int:
+        am = self.ams[vt_symbol]
+
+        roc = am.roc(1, True)
+        std = np.std(np.log(1 + roc / 100)[-param:]) * np.sqrt(252 * day_count)
+
+        r_mat = {}
+        for k, am_ in self.ams.items():
+            if am_.count > 100:
+                roc = am_.roc(1, True)
+                r = np.log(1 + roc / 100)
+                dt_ = am_.datetime_array
+
+                loc = dt_ != 0
+
+                r_mat[k] = pd.Series(r[loc], index=dt_[loc])
+
+        corr = pd.DataFrame(r_mat).iloc[-param:, :].corr().abs().mean().at[vt_symbol]
+
+        weight = std + corr
+        weight = (thres_max - weight) / (thres_max - thres_min)
+
+        factor = self.get_factor(am)[-1]
+        std_ = np.std(am.close_array[-param:])
+        factor_weight = factor / std_ / 3
+
+        weight = weight * 2 / 3 + np.abs(factor_weight) / 3
+
+        if n:
+            weight = (weight * (n - 1) + 1) / n
+            weight = min(max(weight, 1 / n), 1)
+
+        weight *= 1 / len([i for i in self.ams.values() if i.inited])
+
+        size = int(self.capital * weight / self.get_size(vt_symbol) / am.close[-1])
+
+        return size
+

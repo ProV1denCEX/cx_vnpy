@@ -114,8 +114,8 @@ def update_futures_ticks(start_date, end_date, output=print, symbol_set=MC_SYMBO
 
     data_manager = ManagerEngine(main_engine, event_engine)
 
+    contracts = data_manager.load_contract_data(product=Product.FUTURES, start=start_date, end=end_date)
     if symbol_set == MC_SYMBOL:
-        contracts = data_manager.load_contract_data(product=Product.FUTURES, start=start_date, end=end_date)
         mc = [
             contract for contract in contracts
             if contract.symbol == contract.product_id + SymbolSuffix.MC
@@ -132,7 +132,11 @@ def update_futures_ticks(start_date, end_date, output=print, symbol_set=MC_SYMBO
         }
 
     else:
-        raise NotImplementedError(f"tick data update {symbol_set} not implemented!")
+        contracts_selected = {
+            (contract.name, max(contract.list_date, start_date), min(contract.expire_date, end_date)): contract
+            for contract in contracts
+            if contract.symbol != contract.product_id + SymbolSuffix.MC and contract.symbol != contract.product_id + SymbolSuffix.MNC
+        }
 
     with tqdm(total=len(contracts_selected)) as pbar:
         for (ticker, start, end), contract in contracts_selected.items():
@@ -306,7 +310,7 @@ if __name__ == "__main__":
     # start = end = TDays.get_tday(end_hour=0)
     # run(start, end)
 
-    update_futures_ticks(days[0], days[5])
+    update_futures_ticks(days[0], days[5], symbol_set=ALL_SYMBOL)
 
     # update_futures(start, end)
     # update_options(start, end)

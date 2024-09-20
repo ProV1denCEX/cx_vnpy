@@ -85,15 +85,15 @@ def download_future_tick_history():
     }
 
     with tqdm(total=len(contracts_selected)) as pbar:
-        _start = False
+        # _start = False
         for (ticker, start, end), contract in contracts_selected.items():
-            if ticker == 'RU1605':
-                _start = True
+            # if ticker == 'RU1605':
+            #     _start = True
 
-            if not _start:
-                pbar.update()
-                print(f"Skip {ticker}")
-                continue
+            # if not _start:
+            #     pbar.update()
+            #     print(f"Skip {ticker}")
+            #     continue
 
             # ticks = data_manager.load_tick_data(contract.symbol, contract.exchange, start, end)
             # if ticks:

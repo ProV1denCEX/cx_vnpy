@@ -219,6 +219,25 @@ class ManagerEngine(BaseEngine):
 
         return count
 
+    def delete_tick_data(
+            self,
+            symbol: str = None,
+            exchange: Exchange = None,
+            product: Product = None,
+            start: datetime = None,
+            end: datetime = None,
+    ) -> int:
+        """"""
+        count: int = self.database.delete_tick_data(
+            symbol,
+            exchange,
+            product,
+            start,
+            end,
+        )
+
+        return count
+
     def download_contract_data(
         self,
         product: Product,
@@ -314,17 +333,38 @@ class ManagerEngine(BaseEngine):
         symbol: str,
         exchange: Exchange,
         start: datetime,
-        output: Callable
+        end: datetime,
+        output: Callable,
+        contract: ContractData = None,
     ) -> int:
         """
         Query tick data from datafeed.
         """
-        req: HistoryRequest = HistoryRequest(
-            symbol=symbol,
-            exchange=exchange,
-            start=start,
-            end=datetime.now(DB_TZ)
-        )
+        assert symbol or contract
+
+        if contract:
+            req: HistoryRequest = HistoryRequest(
+                symbol=contract.symbol,
+                exchange=contract.exchange,
+                product=contract.product,
+                start=start,
+                end=end
+            )
+
+            req.start = max(start, contract.list_date)
+
+        else:
+            req: HistoryRequest = HistoryRequest(
+                symbol=symbol,
+                exchange=exchange,
+                start=start,
+                end=end
+            )
+
+            vt_symbol: str = f"{symbol}.{exchange.value}"
+            contract: Optional[ContractData] = self.main_engine.get_contract(vt_symbol)
+
+        req.contract = contract
 
         data: List[TickData] = self.datafeed.query_tick_history(req, output)
 

@@ -3,11 +3,12 @@ import datetime as dt
 
 from tqdm.auto import tqdm
 
+from Pandora.constant import SymbolSuffix
 from vnpy.event import EventEngine
 from vnpy.trader.constant import Product, Exchange
 from vnpy.trader.engine import MainEngine
 from vnpy.app.vnpy_datamanager import ManagerEngine
-from vnpy.app.vnpy_tinysoft.tinysoft_datafeed import ALL_SYMBOL, LISTING_SYMBOL
+from vnpy.app.vnpy_tinysoft.tinysoft_datafeed import ALL_SYMBOL, LISTING_SYMBOL, MC_SYMBOL
 
 from Pandora.helper import TDays
 
@@ -105,6 +106,69 @@ def update_futures(start_date, end_date, output=print, symbol_set=LISTING_SYMBOL
 
     main_engine.close()
 
+
+def update_futures_ticks(start_date, end_date, output=print, symbol_set=MC_SYMBOL):
+    event_engine = EventEngine()
+
+    main_engine = MainEngine(event_engine)
+
+    data_manager = ManagerEngine(main_engine, event_engine)
+
+    if symbol_set == MC_SYMBOL:
+        contracts = data_manager.load_contract_data(product=Product.FUTURES, start=start_date, end=end_date)
+        mc = [
+            contract for contract in contracts
+            if contract.symbol == contract.product_id + SymbolSuffix.MC
+        ]
+
+        contracts_raw = {
+            contract.name: contract for contract in contracts
+            if contract.symbol != contract.product_id + SymbolSuffix.MC and contract.symbol != contract.product_id + SymbolSuffix.MNC
+        }
+
+        contracts_selected = {
+            (contract.name, max(contract.list_date, start_date), min(contract.expire_date, end_date)): contracts_raw[contract.name]
+            for contract in mc
+        }
+
+    else:
+        raise NotImplementedError(f"tick data update {symbol_set} not implemented!")
+
+    with tqdm(total=len(contracts_selected)) as pbar:
+        for (ticker, start, end), contract in contracts_selected.items():
+            periods = TDays.period(start, end, None)
+
+            n = 10
+            for i in range(0, len(periods), n):
+                periods_ = periods[i:i+n]
+
+                prev_tday, _, _ = TDays.interval(periods_[0], fmt=None, end_hour=0)
+                start_ = dt.datetime.combine(prev_tday, dt.time(hour=20))
+                end_ = dt.datetime.combine(periods_[-1], dt.time(hour=20))
+
+                if symbol_set == MC_SYMBOL:
+                    # count = data_manager.delete_tick_data(contract.symbol, contract.exchange, contract.product, start_, end_)
+                    # output(f"delete tick {ticker} from {start_} to {end_} {count}")
+                    ticks = data_manager.load_tick_data(contract.symbol, contract.exchange, start_, end_)
+                    count1 = len(ticks)
+
+                count2 = data_manager.download_tick_data(
+                    symbol = contract.symbol,
+                    exchange = contract.exchange,
+                    start=start_,
+                    end=end_,
+                    output=output,
+                    contract=contract
+                )
+
+                ticks = data_manager.load_tick_data(contract.symbol, contract.exchange, start_, end_)
+                count3 = len(ticks)
+
+                output(f"{contract.name} download {count1} - {count2} - {count3} from {start_} to {end_} @ {dt.datetime.now()}")
+
+            pbar.update()
+
+    main_engine.close()
 
 def update_options(start_date, end_date, output=print, symbol_set=LISTING_SYMBOL):
     """"""
@@ -236,14 +300,17 @@ def update_option_underlyings(start_date, end_date, output=print, symbol_set=LIS
 
 if __name__ == "__main__":
     # start = end = "2024-01-16"
-    start, end, _ = TDays.interval(end_hour=0, fmt=None)
+    # start, end, _ = TDays.interval(end_hour=0, fmt=None)
+    days = TDays.interval(days=5, fmt=None)
 
     # start = end = TDays.get_tday(end_hour=0)
     # run(start, end)
 
-    update_futures(start, end)
-    update_options(start, end)
-    update_option_underlyings(start, end)
+    update_futures_ticks(days[0], days[5])
+
+    # update_futures(start, end)
+    # update_options(start, end)
+    # update_option_underlyings(start, end)
 
     # days = TDays.interval(days=5, fmt=None)
     # start = days[0]

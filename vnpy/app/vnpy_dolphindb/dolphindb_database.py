@@ -228,7 +228,7 @@ class DolphindbDatabase(BaseDatabase):
 
         return True
 
-    def save_tick_data(self, ticks: list[TickData], stream: bool = False) -> bool:
+    def save_tick_data(self, ticks: list[TickData], stream: bool = False, product: Product = None) -> bool:
         """保存TICK数据"""
         ticks_to_db: list[dict] = []
 
@@ -284,9 +284,11 @@ class DolphindbDatabase(BaseDatabase):
             ticks_to_db.append(d)
 
         df: pd.DataFrame = pd.DataFrame.from_records(ticks_to_db)
+        table_name = self.get_table_name("tick", product)
+
         appender: ddb.PartitionedTableAppender = ddb.PartitionedTableAppender(
             self.db_path,
-            self.table_name["tick"],
+            table_name,
             "datetime",
             self.pool
         )
@@ -618,28 +620,50 @@ class DolphindbDatabase(BaseDatabase):
     def delete_tick_data(
             self,
             symbol: str,
-            exchange: Exchange
+            exchange: Exchange,
+            product: Product = None,
+            start: datetime = None,
+            end: datetime = None,
     ) -> int:
         """删除Tick数据"""
         # 加载数据表
-        table: ddb.Table = self.session.loadTable(tableName=self.table_name["tick"], dbPath=self.db_path)
+        table_name = self.get_table_name("tick", product)
+        table: ddb.Table = self.session.loadTable(tableName=table_name, dbPath=self.db_path)
 
         # 统计数据量
-        df: pd.DataFrame = (
-            table.select('count(*)')
-            .where(f'symbol="{symbol}"')
-            .where(f'exchange="{exchange.value}"')
-            .toDF()
-        )
+        query = table.select('count(*)')
+        if symbol:
+            query = query.where(f'symbol="{symbol}"')
+
+        if exchange:
+            query = query.where(f'exchange="{exchange.value}"')
+
+        if start:
+            start = start.strftime(DateFmt.dolphin_datetime.value)
+            query = query.where(f'datetime >= {start}')
+
+        if end:
+            end = end.strftime(DateFmt.dolphin_datetime.value)
+            query = query.where(f'datetime <= {end}')
+
+        df: pd.DataFrame = query.toDF()
         count: int = df["count"][0]
 
         # 删除Tick数据
-        (
-            table.delete()
-            .where(f'symbol="{symbol}"')
-            .where(f'exchange="{exchange.value}"')
-            .execute()
-        )
+        query = table.delete()
+        if symbol:
+            query = query.where(f'symbol="{symbol}"')
+
+        if exchange:
+            query = query.where(f'exchange="{exchange.value}"')
+
+        if start:
+            query = query.where(f'datetime >= {start}')
+
+        if end:
+            query = query.where(f'datetime <= {end}')
+
+        query.execute()
 
         return count
 

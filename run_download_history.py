@@ -5,6 +5,7 @@ import numpy as np
 import pandas as pd
 from tqdm.auto import tqdm
 
+from Pandora.constant import SymbolSuffix
 from vnpy.event import EventEngine
 from vnpy.trader.constant import Product, Interval, Exchange
 
@@ -29,8 +30,7 @@ def download_future_history():
     # start = dt.datetime.now() - dt.timedelta(days=3)
     contracts = data_manager.load_contract_data(product=Product.FUTURES, start=None, end=None)
 
-    contracts = {contract.name: contract for contract in contracts
-                 }
+    contracts = {contract.name: contract for contract in contracts}
                  # if contract.exchange == Exchange.CZCE}
                  # contract.product_id.upper() not in {"IF", "T", "AG", "AP", "JM", "SI"}}
 
@@ -54,6 +54,73 @@ def download_future_history():
 
             count = data_manager.rebuild_bar_data_from_data(bars, "recorder", contract.product)
             print(f"{contract.symbol} rebuild {count}")
+
+            pbar.update()
+
+    main_engine.close()
+
+
+def download_future_tick_history():
+    """"""
+    event_engine = EventEngine()
+
+    main_engine = MainEngine(event_engine)
+
+    data_manager = ManagerEngine(main_engine, event_engine)
+
+    contracts = data_manager.load_contract_data(product=Product.FUTURES, start=None, end=None)
+    mc = [
+        contract for contract in contracts
+        if contract.symbol == contract.product_id + SymbolSuffix.MC and contract.expire_date > dt.datetime(2015, 1, 1)
+    ]
+
+    contracts_raw = {
+        contract.name: contract for contract in contracts
+        if contract.symbol != contract.product_id + SymbolSuffix.MC and contract.symbol != contract.product_id + SymbolSuffix.MNC
+    }
+
+    contracts_selected = {
+        (contract.name, contract.list_date, contract.expire_date): contracts_raw[contract.name]
+        for contract in mc
+    }
+
+    with tqdm(total=len(contracts_selected)) as pbar:
+        _start = False
+        for (ticker, start, end), contract in contracts_selected.items():
+            if ticker == 'RU1605':
+                _start = True
+
+            if not _start:
+                pbar.update()
+                print(f"Skip {ticker}")
+                continue
+
+            # ticks = data_manager.load_tick_data(contract.symbol, contract.exchange, start, end)
+            # if ticks:
+            #     pbar.update()
+            #     print(f"Skip {ticker}: {len(ticks)}")
+            #     continue
+
+            periods = TDays.period(start, end, None)
+
+            n = 10
+            for i in range(0, len(periods), n):
+                periods_ = periods[i:i+n]
+
+                prev_tday, _, _ = TDays.interval(periods_[0], fmt=None, end_hour=0)
+                start_ = dt.datetime.combine(prev_tday, dt.time(hour=20))
+                end_ = dt.datetime.combine(periods_[-1], dt.time(hour=20))
+
+                count = data_manager.download_tick_data(
+                    symbol = contract.symbol,
+                    exchange = contract.exchange,
+                    start=start_,
+                    end=end_,
+                    output=print,
+                    contract=contract
+                )
+
+                print(f"{contract.name} download {count} from {start_} to {end_} @ {dt.datetime.now()}")
 
             pbar.update()
 
@@ -287,7 +354,8 @@ if __name__ == "__main__":
     #
     #     start_ = end_
 
-    start, end, _ = TDays.interval(end_hour=0, fmt=None)
+    # start, end, _ = TDays.interval(end_hour=0, fmt=None)
 
-    calculate_option_greeks(start, end)
+    # calculate_option_greeks(start, end)
 
+    download_future_tick_history()

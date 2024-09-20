@@ -134,7 +134,10 @@ class BaseDatabase(ABC):
     def delete_tick_data(
             self,
             symbol: str,
-            exchange: Exchange
+            exchange: Exchange,
+            product: Product = None,
+            start: datetime = None,
+            end: datetime = None,
     ) -> int:
         """
         Delete all tick data with given symbol + exchange.

@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta
 from typing import Dict, List, Set, Optional, Callable
 
+import numpy as np
 import pandas as pd
 from pyTSL import Client, DoubleToDatetime
 
@@ -56,6 +57,7 @@ INDEX_SYMBOL_MAP = {
 
 CHINA_TZ = ZoneInfo("Asia/Shanghai")
 
+MC_SYMBOL = "mc_only"
 LISTING_SYMBOL = "listing_only"
 ALL_SYMBOL = "all"
 
@@ -500,79 +502,104 @@ class TinysoftDatafeed(BaseDatafeed):
             if not n:
                 return []
 
-        symbol, exchange = req.symbol, req.exchange
+        if req.contract:
+            contract = req.contract
+
+        else:
+            contracts = self.database.load_contract_data(symbol=req.symbol, product=req.product, start=req.start, end=req.end)
+            if contracts:
+                contract = contracts[0]
+
+            else:
+                raise ValueError("Contract data not found in db")
+
+        symbol, exchange, ticker = contract.symbol, contract.exchange, contract.name
         tsl_exchange: str = EXCHANGE_MAP.get(exchange, "")
 
         ticks: List[TickData] = []
-        dts: Set[datetime] = set()
 
-        dt: datetime = req.start
-        while dt <= req.end:
-            date_str: str = dt.strftime("%Y%m%d")
-            cmd: str = f"return select * from tradetable datekey {date_str}T to {date_str}T+16/24 of '{tsl_exchange}{symbol}' end ; "
-            result = self.client.exec(cmd)
+        start_str: str = req.start.strftime("%Y%m%d.%H%M%ST")
+        end_str: str = req.end.strftime("%Y%m%d.%H%M%ST")
 
-            if not result.error():
-                data = result.value()
-                for d in data:
-                    dt: datetime = DoubleToDatetime(d["date"])
-                    dt: datetime = dt.replace(tzinfo=CHINA_TZ)
+        cmd: str = f"return select * from tradetable datekey {start_str} to {end_str} of '{tsl_exchange}{ticker}' end ; "
+        result = self.client.exec(cmd)
 
-                    # 解决期货缺失毫秒时间戳的问题
-                    if dt in dts:
-                        dt = dt.replace(microsecond=500000)
-                    dts.add(dt)
+        if result.error():
+            output(result)
 
-                    tick: TickData = TickData(
-                        symbol=symbol,
-                        exchange=exchange,
-                        name=d["StockName"],
-                        datetime=dt,
-                        open_price=d["sectional_open"],
-                        high_price=d["sectional_high"],
-                        low_price=d["sectional_low"],
-                        last_price=d["price"],
-                        volume=d["sectional_vol"],
-                        turnover=d["sectional_amount"],
-                        bid_price_1=d["buy1"],
-                        bid_price_2=d["buy2"],
-                        bid_price_3=d["buy3"],
-                        bid_price_4=d["buy4"],
-                        bid_price_5=d["buy5"],
-                        ask_price_1=d["sale1"],
-                        ask_price_2=d["sale2"],
-                        ask_price_3=d["sale3"],
-                        ask_price_4=d["sale4"],
-                        ask_price_5=d["sale5"],
-                        bid_volume_1=d["bc1"],
-                        bid_volume_2=d["bc2"],
-                        bid_volume_3=d["bc3"],
-                        bid_volume_4=d["bc4"],
-                        bid_volume_5=d["bc5"],
-                        ask_volume_1=d["sc1"],
-                        ask_volume_2=d["sc2"],
-                        ask_volume_3=d["sc3"],
-                        ask_volume_4=d["sc4"],
-                        ask_volume_5=d["sc5"],
-                        localtime=dt,
-                        gateway_name="TSL"
-                    )
+        else:
+            data = pd.DataFrame(result.value())
+            if data.empty:
+                return ticks
 
-                    # 期货则获取持仓量字段
-                    if not tsl_exchange:
-                        tick.open_interest = d["sectional_cjbs"]
+            data['dt'] = data['date'].apply(DoubleToDatetime)
 
-                    # 基金获取IOPV字段
-                    if d["syl2"]:
-                        iopv: float = d["syl2"]
-                        if exchange == Exchange.SZSE:  # 深交所的IOPV要除以100才是每股
-                            iopv /= 100
+            if req.product == Product.FUTURES:
+                data = self.fix_amount(
+                    data,
+                    col_volume="sectional_vol",
+                    col_amount="sectional_amount",
+                    multiplier=contract.size
+                )
 
-                        tick.extra = {"iopv": iopv}
+                loc = data['dt'].diff() == timedelta(seconds=0)
+                tmp = loc.cumsum()
+                tmp2 = tmp.mask(loc).ffill()
+                time_interval = tmp - tmp2
+                time_count = data.groupby('dt')['dt'].transform("count")
+                data['new_dt'] = data['dt'] + time_interval / time_count * timedelta(seconds=1)
 
-                    ticks.append(tick)
+            for _, d in data.iterrows():
+                tick: TickData = TickData(
+                    symbol=symbol,
+                    exchange=exchange,
+                    name=d["StockName"],
+                    datetime=d["new_dt"].replace(tzinfo=CHINA_TZ),
+                    open_price=d["sectional_open"],
+                    high_price=d["sectional_high"],
+                    low_price=d["sectional_low"],
+                    last_price=d["price"],
+                    last_volume=d["vol"],
+                    pre_close=d["yclose"],
+                    volume=d["sectional_vol"],
+                    turnover=d["sectional_amount"],
+                    bid_price_1=d["buy1"],
+                    bid_price_2=d["buy2"],
+                    bid_price_3=d["buy3"],
+                    bid_price_4=d["buy4"],
+                    bid_price_5=d["buy5"],
+                    ask_price_1=d["sale1"],
+                    ask_price_2=d["sale2"],
+                    ask_price_3=d["sale3"],
+                    ask_price_4=d["sale4"],
+                    ask_price_5=d["sale5"],
+                    bid_volume_1=d["bc1"],
+                    bid_volume_2=d["bc2"],
+                    bid_volume_3=d["bc3"],
+                    bid_volume_4=d["bc4"],
+                    bid_volume_5=d["bc5"],
+                    ask_volume_1=d["sc1"],
+                    ask_volume_2=d["sc2"],
+                    ask_volume_3=d["sc3"],
+                    ask_volume_4=d["sc4"],
+                    ask_volume_5=d["sc5"],
+                    localtime=datetime.now(CHINA_TZ),
+                    gateway_name="TSL"
+                )
 
-            dt += timedelta(days=1)
+                # 期货则获取持仓量字段
+                if not tsl_exchange:
+                    tick.open_interest = d["sectional_cjbs"]
+
+                # 基金获取IOPV字段
+                if d["syl2"]:
+                    iopv: float = d["syl2"]
+                    if exchange == Exchange.SZSE:  # 深交所的IOPV要除以100才是每股
+                        iopv /= 100
+
+                    tick.extra = {"iopv": iopv}
+
+                ticks.append(tick)
 
         return ticks
 

@@ -150,11 +150,10 @@ def update_futures_ticks(start_date, end_date, output=print, symbol_set=MC_SYMBO
                 start_ = dt.datetime.combine(prev_tday, dt.time(hour=20))
                 end_ = dt.datetime.combine(periods_[-1], dt.time(hour=20))
 
-                if symbol_set == MC_SYMBOL:
-                    # count = data_manager.delete_tick_data(contract.symbol, contract.exchange, contract.product, start_, end_)
-                    # output(f"delete tick {ticker} from {start_} to {end_} {count}")
-                    ticks = data_manager.load_tick_data(contract.symbol, contract.exchange, start_, end_)
-                    count1 = len(ticks)
+                # count = data_manager.delete_tick_data(contract.symbol, contract.exchange, contract.product, start_, end_)
+                # output(f"delete tick {ticker} from {start_} to {end_} {count}")
+                ticks = data_manager.load_tick_data(contract.symbol, contract.exchange, start_, end_)
+                count1 = len(ticks)
 
                 count2 = data_manager.download_tick_data(
                     symbol = contract.symbol,

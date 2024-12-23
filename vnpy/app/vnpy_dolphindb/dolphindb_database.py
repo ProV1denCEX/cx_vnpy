@@ -1,6 +1,7 @@
 from datetime import datetime
 from enum import Enum
 
+import random
 import numpy as np
 import pandas as pd
 import dolphindb as ddb
@@ -28,8 +29,16 @@ class DolphindbDatabase(BaseDatabase):
         """构造函数"""
         self.user: str = SETTINGS["database.user"]
         self.password: str = SETTINGS["database.password"]
-        self.host: str = SETTINGS["database.host"]
-        self.port: int = SETTINGS["database.port"]
+
+        rand = random.random()
+        if rand >= 0.5:
+            self.host: str = SETTINGS["database.host"]
+            self.port: int = SETTINGS["database.port"]
+
+        else:
+            self.host: str = SETTINGS["database.host2"]
+            self.port: int = SETTINGS["database.port2"]
+
         self.db_path: str = "dfs://" + SETTINGS["database.database"]
 
         self.table_name = SETTINGS["database.table_name"]

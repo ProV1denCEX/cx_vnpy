@@ -33,6 +33,10 @@ SETTINGS: Dict[str, Any] = {
     "database.database": "CTA_REALTRADE",
     "database.host": "127.0.0.1",
     "database.port": 8848,
+
+    "database.host2": "127.0.0.1",
+    "database.port2": 8903,
+
     "database.user": "admin",
     "database.password": "zaq1@WSXcde3",
     "database.table_name": {

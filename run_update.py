@@ -5,7 +5,7 @@ from tqdm.auto import tqdm
 
 from Pandora.constant import SymbolSuffix
 from vnpy.event import EventEngine
-from vnpy.trader.constant import Product, Exchange
+from Pandora.constant import Product, Exchange
 from vnpy.trader.engine import MainEngine
 from vnpy.app.vnpy_datamanager import ManagerEngine
 from vnpy.app.vnpy_tinysoft.tinysoft_datafeed import ALL_SYMBOL, LISTING_SYMBOL, MC_SYMBOL

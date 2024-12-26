@@ -1,7 +1,7 @@
 from typing import TYPE_CHECKING, Set
 
 from Pandora.trader.object import TickData, OrderData, TradeData
-from vnpy.trader.constant import Direction, Offset
+from Pandora.constant import Direction, Offset
 from Pandora.trader.utility import round_to
 
 from .base import OptionData, UnderlyingData

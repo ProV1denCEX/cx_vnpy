@@ -5,7 +5,7 @@ from vnpy.event import Event, EventEngine
 from Pandora.trader.object import OrderData, OrderRequest, LogData, TradeData
 from vnpy.trader.engine import BaseEngine, MainEngine
 from vnpy.trader.event import EVENT_TRADE, EVENT_ORDER, EVENT_LOG, EVENT_TIMER
-from vnpy.trader.constant import Direction, Status
+from Pandora.constant import Direction, Status
 from Pandora.trader.utility import load_json, save_json
 
 

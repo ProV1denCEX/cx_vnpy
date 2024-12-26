@@ -6,7 +6,7 @@ import numpy as np
 from vnpy.app.vnpy_portfoliostrategy.base import EngineType
 from Pandora.trader.utility import ArrayManager
 from Pandora.trader.object import TickData, BarData
-from vnpy.trader.constant import Interval
+from Pandora.constant import Interval
 
 from vnpy.app.vnpy_portfoliostrategy import StrategyTemplate, StrategyEngine
 from vnpy.app.vnpy_portfoliostrategy.utility import PortfolioBarGenerator

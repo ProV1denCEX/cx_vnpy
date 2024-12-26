@@ -5,7 +5,7 @@ from datetime import datetime, time
 from logging import INFO
 
 from vnpy.event import EventEngine
-from vnpy.trader.constant import Product
+from Pandora.constant import Product
 from vnpy.trader.database import get_database
 from vnpy.trader.setting import SETTINGS
 from vnpy.trader.engine import MainEngine

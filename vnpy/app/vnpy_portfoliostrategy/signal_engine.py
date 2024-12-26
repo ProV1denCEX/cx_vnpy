@@ -22,7 +22,7 @@ from Pandora.trader.object import (
 from vnpy.trader.event import (
     EVENT_TICK
 )
-from vnpy.trader.constant import (
+from Pandora.constant import (
     Direction,
     Interval,
     Offset

@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 
 from vnpy.trader.ui import QtWidgets, QtCore
 from vnpy.trader.engine import MainEngine, EventEngine
-from vnpy.trader.constant import Interval, Exchange, Product
+from Pandora.constant import Interval, Exchange, Product
 from Pandora.trader.object import BarData
 from vnpy.trader.database import DB_TZ
 from Pandora.trader.utility import available_timezones

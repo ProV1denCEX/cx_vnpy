@@ -1,6 +1,6 @@
 from typing import TYPE_CHECKING, Optional
 
-from vnpy.trader.constant import Direction
+from Pandora.constant import Direction
 from Pandora.trader.object import TickData, OrderData, TradeData, ContractData
 from Pandora.trader.utility import round_to
 

@@ -5,7 +5,7 @@ import numpy as np
 
 from Pandora.trader.utility import BarGenerator
 from Pandora.trader.object import TickData, BarData
-from vnpy.trader.constant import Direction
+from Pandora.constant import Direction
 
 from vnpy.app.vnpy_portfoliostrategy import StrategyTemplate, StrategyEngine
 

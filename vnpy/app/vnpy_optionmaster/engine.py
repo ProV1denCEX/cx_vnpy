@@ -13,7 +13,7 @@ from vnpy.trader.event import (
     EVENT_TRADE, EVENT_TICK, EVENT_CONTRACT,
     EVENT_TIMER, EVENT_ORDER
 )
-from vnpy.trader.constant import (
+from Pandora.constant import (
     Product, Offset, Direction, OrderType, Exchange, Status
 )
 from vnpy.trader.converter import OffsetConverter, PositionHolding

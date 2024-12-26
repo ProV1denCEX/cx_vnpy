@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Callable, Dict, Optional
 
-from vnpy.trader.constant import Direction
+from Pandora.constant import Direction
 from Pandora.trader.object import BarData, TickData, Interval
 from Pandora.trader.utility import ArrayManager
 

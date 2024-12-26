@@ -8,7 +8,7 @@ from vnpy.trader.database import get_database
 from Pandora.trader.object import LogData, TickData, SubscribeRequest, ContractData
 from vnpy.trader.engine import BaseEngine, MainEngine
 from vnpy.trader.event import EVENT_LOG, EVENT_CONTRACT, EVENT_TICK
-from vnpy.trader.constant import Product
+from Pandora.constant import Product
 
 APP_NAME = "MainContractManager"
 GATEWAY_NAME = "MC"

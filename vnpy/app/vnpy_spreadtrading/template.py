@@ -5,7 +5,7 @@ from copy import copy
 from Pandora.trader.object import (
     TickData, TradeData, OrderData, ContractData, BarData
 )
-from vnpy.trader.constant import Direction, Status, Offset, Interval
+from Pandora.constant import Direction, Status, Offset, Interval
 from Pandora.trader.utility import virtual, floor_to, ceil_to, round_to
 
 from .base import SpreadData, LegData, EngineType, AlgoItem

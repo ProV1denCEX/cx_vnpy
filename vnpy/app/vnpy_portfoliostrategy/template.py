@@ -8,7 +8,7 @@ from copy import copy
 from typing import Dict, Set, List, TYPE_CHECKING, Optional
 from collections import defaultdict
 
-from vnpy.trader.constant import Interval, Direction, Offset
+from Pandora.constant import Interval, Direction, Offset
 from Pandora.trader.object import BarData, TickData, OrderData, TradeData, ContractData
 from Pandora.trader.utility import virtual
 

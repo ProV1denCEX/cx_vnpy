@@ -28,7 +28,7 @@ from vnpy.trader.event import (
     EVENT_ORDER,
     EVENT_TRADE
 )
-from vnpy.trader.constant import (
+from Pandora.constant import (
     Direction,
     OrderType,
     Interval,

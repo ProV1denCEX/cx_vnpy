@@ -7,7 +7,7 @@ from tqdm.auto import tqdm
 
 from Pandora.constant import SymbolSuffix
 from vnpy.event import EventEngine
-from vnpy.trader.constant import Product, Interval, Exchange
+from Pandora.constant import Product, Interval, Exchange
 
 from vnpy.trader.engine import MainEngine
 

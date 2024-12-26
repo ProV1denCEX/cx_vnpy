@@ -3,7 +3,7 @@ from datetime import datetime
 from typing import List, Optional, Callable
 
 from vnpy.trader.engine import BaseEngine, MainEngine, EventEngine
-from vnpy.trader.constant import Interval, Exchange, Product
+from Pandora.constant import Interval, Exchange, Product
 from Pandora.trader.object import BarData, TickData, ContractData, HistoryRequest
 from vnpy.trader.database import BaseDatabase, get_database, BarOverview, DB_TZ
 from vnpy.trader.datafeed import BaseDatafeed, get_datafeed

@@ -9,7 +9,7 @@ from pandas import DataFrame
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
-from vnpy.trader.constant import (
+from Pandora.constant import (
     Direction,
     Offset,
     Exchange,

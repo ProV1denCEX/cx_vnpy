@@ -1,7 +1,7 @@
 from datetime import datetime
 
 from vnpy.trader.ui import create_qapp, QtCore
-from vnpy.trader.constant import Exchange, Interval
+from Pandora.constant import Exchange, Interval
 from vnpy.trader.database import get_database
 from vnpy.chart import ChartWidget, VolumeItem, CandleItem
 

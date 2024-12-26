@@ -8,7 +8,7 @@ from Pandora.trader.object import (
     PositionData,
     OrderRequest
 )
-from .constant import Direction, Offset, Exchange
+from Pandora.constant import Direction, Offset, Exchange
 
 if TYPE_CHECKING:
     from .engine import MainEngine

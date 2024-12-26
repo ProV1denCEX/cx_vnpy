@@ -6,7 +6,7 @@ from typing import Any, Dict, List, Optional
 
 from vnpy.event import Event, EventEngine
 from vnpy.trader.engine import BaseEngine, MainEngine
-from vnpy.trader.constant import Exchange
+from Pandora.constant import Exchange
 from Pandora.trader.object import (
     SubscribeRequest,
     TickData,

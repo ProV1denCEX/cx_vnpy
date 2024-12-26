@@ -5,7 +5,7 @@ from typing import List
 from dataclasses import dataclass
 from importlib import import_module
 
-from .constant import Interval, Exchange, Product
+from Pandora.constant import Interval, Exchange, Product
 from Pandora.trader.object import BarData, TickData, ContractData
 from .setting import SETTINGS
 from Pandora.trader.utility import ZoneInfo

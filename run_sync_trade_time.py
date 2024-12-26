@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 import dolphindb as ddb
 
-from vnpy.trader.constant import Product
+from Pandora.constant import Product
 from vnpy.trader.database import get_database
 from vnpy.trader.setting import SETTINGS
 

@@ -4,7 +4,7 @@ from time import sleep
 from typing import Dict, List, Tuple
 
 from vnpy.event import EventEngine
-from vnpy.trader.constant import (
+from Pandora.constant import (
     Direction,
     Offset,
     Exchange,

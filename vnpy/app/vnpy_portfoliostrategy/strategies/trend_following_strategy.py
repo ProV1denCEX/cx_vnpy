@@ -3,7 +3,7 @@ from datetime import datetime
 
 from Pandora.trader.utility import ArrayManager
 from Pandora.trader.object import TickData, BarData
-from vnpy.trader.constant import Direction
+from Pandora.constant import Direction
 
 from vnpy.app.vnpy_portfoliostrategy import StrategyTemplate, StrategyEngine
 from vnpy.app.vnpy_portfoliostrategy.utility import PortfolioBarGenerator

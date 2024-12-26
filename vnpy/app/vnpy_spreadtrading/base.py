@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from Pandora.trader.object import (
     HistoryRequest, TickData, PositionData, TradeData, ContractData, BarData
 )
-from vnpy.trader.constant import Direction, Offset, Exchange, Interval, Status
+from Pandora.constant import Direction, Offset, Exchange, Interval, Status
 from Pandora.trader.utility import floor_to, ceil_to, round_to, extract_vt_symbol, ZoneInfo
 from vnpy.trader.database import BaseDatabase, get_database
 from vnpy.trader.datafeed import BaseDatafeed, get_datafeed

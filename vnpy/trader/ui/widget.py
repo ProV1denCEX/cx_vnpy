@@ -13,7 +13,7 @@ from tzlocal import get_localzone_name
 import importlib_metadata
 
 from .qt import QtCore, QtGui, QtWidgets
-from ..constant import Direction, Exchange, Offset, OrderType
+from Pandora.constant import Direction, Exchange, Offset, OrderType
 from ..engine import MainEngine, Event, EventEngine
 from ..event import (
     EVENT_QUOTE,

@@ -7,7 +7,7 @@ from vnpy.event import EventEngine
 from vnpy.event.engine import Event
 from vnpy.trader.event import EVENT_TICK
 from Pandora.trader.object import ContractData, TickData, TradeData
-from vnpy.trader.constant import Exchange, OptionType, Direction, Offset
+from Pandora.constant import Exchange, OptionType, Direction, Offset
 from vnpy.trader.converter import PositionHolding
 from Pandora.trader.utility import extract_vt_symbol
 

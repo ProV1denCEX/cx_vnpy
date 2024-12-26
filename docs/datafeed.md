@@ -81,7 +81,7 @@ TuShare是国内知名的开源Python金融数据接口项目，由大神Jimmy�
 from datetime import datetime
 from vnpy.trader.constant import Exchange, Interval
 from vnpy.trader.datafeed import get_datafeed
-from vnpy.trader.object import HistoryRequest
+from Pandora.trader.object import HistoryRequest
 
 # 获取数据服务实例
 datafeed = get_datafeed()

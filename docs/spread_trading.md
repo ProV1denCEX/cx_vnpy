@@ -349,7 +349,7 @@ main_engine.add_app(SpreadTradingApp)
 在基于价差交易策略模板编写策略逻辑之前，需要在策略文件的顶部载入需要用到的内部组件，如下方代码所示：
 
 ```python 3
-from vnpy.trader.utility import BarGenerator, ArrayManager
+from Pandora.trader.utility import BarGenerator, ArrayManager
 from vnpy_spreadtrading import (
     SpreadStrategyTemplate,
     SpreadAlgoTemplate,

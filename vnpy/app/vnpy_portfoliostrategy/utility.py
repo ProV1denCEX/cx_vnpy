@@ -2,8 +2,8 @@ from datetime import datetime
 from typing import Callable, Dict, Optional
 
 from vnpy.trader.constant import Direction
-from vnpy.trader.object import BarData, TickData, Interval
-from vnpy.trader.utility import ArrayManager
+from Pandora.trader.object import BarData, TickData, Interval
+from Pandora.trader.utility import ArrayManager
 
 
 class PortfolioBarGenerator:

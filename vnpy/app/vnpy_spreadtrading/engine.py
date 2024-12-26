@@ -14,8 +14,8 @@ from vnpy.trader.event import (
     EVENT_TICK, EVENT_POSITION, EVENT_CONTRACT,
     EVENT_ORDER, EVENT_TRADE, EVENT_TIMER
 )
-from vnpy.trader.utility import load_json, save_json
-from vnpy.trader.object import (
+from Pandora.trader.utility import load_json, save_json
+from Pandora.trader.object import (
     TickData, ContractData, BarData,
     PositionData, OrderData, TradeData, LogData,
     SubscribeRequest, OrderRequest, CancelRequest

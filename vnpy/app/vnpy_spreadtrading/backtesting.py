@@ -16,7 +16,7 @@ from vnpy.trader.constant import (
     Interval,
     Status
 )
-from vnpy.trader.object import TradeData, BarData, TickData
+from Pandora.trader.object import TradeData, BarData, TickData
 from vnpy.trader.optimize import (
     OptimizationSetting,
     check_optimization_setting,

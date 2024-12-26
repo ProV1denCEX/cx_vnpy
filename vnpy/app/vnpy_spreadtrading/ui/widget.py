@@ -6,7 +6,7 @@ from typing import Dict, List, Any
 
 from vnpy.event import EventEngine, Event
 from vnpy.trader.engine import MainEngine
-from vnpy.trader.object import LogData
+from Pandora.trader.object import LogData
 from vnpy.trader.constant import Direction
 from vnpy.trader.ui import QtWidgets, QtCore, QtGui
 from vnpy.trader.ui.widget import (

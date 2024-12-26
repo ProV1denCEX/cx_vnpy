@@ -6,7 +6,7 @@ from logging import CRITICAL
 from typing import Dict, Any
 from tzlocal import get_localzone_name
 
-from .utility import load_json
+from Pandora.trader.utility import load_json
 
 SETTINGS: Dict[str, Any] = {
     "font.family": "微软雅黑",

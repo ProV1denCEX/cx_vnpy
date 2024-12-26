@@ -14,7 +14,6 @@ from vnpy.app.vnpy_ctp import CtpGateway
 from vnpy.app.vnpy_datarecorder import DataRecorderApp
 from vnpy.app.vnpy_datarecorder.engine import EVENT_RECORDER_LOG
 from vnpy.app.vnpy_mcmanager.engine import MainContractManager
-from vnpy.trader.utility import load_json
 
 SETTINGS["log.active"] = True
 SETTINGS["log.level"] = INFO

@@ -7,7 +7,7 @@ import pandas as pd
 import dolphindb as ddb
 
 from vnpy.trader.constant import Exchange, Interval, Product, OptionType
-from vnpy.trader.object import BarData, TickData, ContractData
+from Pandora.trader.object import BarData, TickData, ContractData
 from vnpy.trader.database import (
     BaseDatabase,
     BarOverview,

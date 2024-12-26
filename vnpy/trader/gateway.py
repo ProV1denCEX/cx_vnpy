@@ -13,7 +13,7 @@ from .event import (
     EVENT_LOG,
     EVENT_QUOTE,
 )
-from .object import (
+from Pandora.trader.object import (
     TickData,
     OrderData,
     TradeData,

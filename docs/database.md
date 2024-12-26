@@ -324,7 +324,7 @@ from datetime import datetime
 from typing import List
 from vnpy.trader.constant import Exchange, Interval
 from vnpy.trader.database import get_database
-from vnpy.trader.object import BarData, TickData
+from Pandora.trader.object import BarData, TickData
 
 # 获取数据库实例
 database = get_database()

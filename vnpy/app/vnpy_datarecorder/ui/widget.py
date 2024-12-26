@@ -5,7 +5,7 @@ from vnpy.event import Event, EventEngine
 from vnpy.trader.engine import MainEngine
 from vnpy.trader.ui import QtCore, QtWidgets
 from vnpy.trader.event import EVENT_CONTRACT
-from vnpy.trader.object import ContractData
+from Pandora.trader.object import ContractData
 
 from ..engine import (
     APP_NAME,

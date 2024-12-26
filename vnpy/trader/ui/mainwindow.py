@@ -28,7 +28,7 @@ from .widget import (
     GlobalDialog
 )
 from ..engine import MainEngine, BaseApp
-from ..utility import get_icon_path, TRADER_DIR
+from Pandora.trader.utility import get_icon_path, TRADER_DIR
 
 
 class MainWindow(QtWidgets.QMainWindow):

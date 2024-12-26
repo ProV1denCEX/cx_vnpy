@@ -2,7 +2,7 @@ from typing import Dict, List, Set, Optional
 from copy import copy
 from collections import defaultdict
 
-from vnpy.trader.object import (
+from Pandora.trader.object import (
     LogData, ContractData, TickData,
     OrderData, TradeData, PositionData,
     SubscribeRequest, OrderRequest, CancelRequest
@@ -17,7 +17,7 @@ from vnpy.trader.constant import (
     Product, Offset, Direction, OrderType, Exchange, Status
 )
 from vnpy.trader.converter import OffsetConverter, PositionHolding
-from vnpy.trader.utility import extract_vt_symbol, round_to, save_json, load_json
+from Pandora.trader.utility import extract_vt_symbol, round_to, save_json, load_json
 
 from .base import (
     APP_NAME,

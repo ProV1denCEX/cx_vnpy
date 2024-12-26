@@ -23,7 +23,7 @@ from .event import (
     EVENT_QUOTE
 )
 from .gateway import BaseGateway
-from .object import (
+from Pandora.trader.object import (
     CancelRequest,
     LogData,
     OrderRequest,
@@ -41,7 +41,7 @@ from .object import (
     Exchange
 )
 from .setting import SETTINGS
-from .utility import get_folder_path, TRADER_DIR
+from Pandora.trader.utility import get_folder_path, TRADER_DIR
 from .converter import OffsetConverter
 
 

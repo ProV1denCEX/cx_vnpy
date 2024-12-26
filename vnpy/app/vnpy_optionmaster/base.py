@@ -6,10 +6,10 @@ from functools import lru_cache
 from vnpy.event import EventEngine
 from vnpy.event.engine import Event
 from vnpy.trader.event import EVENT_TICK
-from vnpy.trader.object import ContractData, TickData, TradeData
+from Pandora.trader.object import ContractData, TickData, TradeData
 from vnpy.trader.constant import Exchange, OptionType, Direction, Offset
 from vnpy.trader.converter import PositionHolding
-from vnpy.trader.utility import extract_vt_symbol
+from Pandora.trader.utility import extract_vt_symbol
 
 from .time import calculate_days_to_expiry, ANNUAL_DAYS
 

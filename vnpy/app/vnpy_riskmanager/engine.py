@@ -2,11 +2,11 @@ from collections import defaultdict
 from typing import Callable, Dict, Optional
 
 from vnpy.event import Event, EventEngine
-from vnpy.trader.object import OrderData, OrderRequest, LogData, TradeData
+from Pandora.trader.object import OrderData, OrderRequest, LogData, TradeData
 from vnpy.trader.engine import BaseEngine, MainEngine
 from vnpy.trader.event import EVENT_TRADE, EVENT_ORDER, EVENT_LOG, EVENT_TIMER
 from vnpy.trader.constant import Direction, Status
-from vnpy.trader.utility import load_json, save_json
+from Pandora.trader.utility import load_json, save_json
 
 
 APP_NAME = "RiskManager"

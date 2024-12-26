@@ -2,20 +2,19 @@ import sys
 from threading import Thread
 from queue import Queue, Empty
 from copy import copy
-from collections import defaultdict
 from typing import Any, Dict, List, Optional
 
 from vnpy.event import Event, EventEngine
 from vnpy.trader.engine import BaseEngine, MainEngine
 from vnpy.trader.constant import Exchange
-from vnpy.trader.object import (
+from Pandora.trader.object import (
     SubscribeRequest,
     TickData,
     BarData,
     ContractData
 )
 from vnpy.trader.event import EVENT_TICK, EVENT_CONTRACT, EVENT_TIMER
-from vnpy.trader.utility import load_json, save_json, BarGenerator
+from Pandora.trader.utility import load_json, save_json, BarGenerator
 from vnpy.trader.database import BaseDatabase, get_database
 from vnpy.app.vnpy_spreadtrading.base import EVENT_SPREAD_DATA, SpreadData
 

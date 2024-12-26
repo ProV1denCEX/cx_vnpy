@@ -1,8 +1,8 @@
 from typing import TYPE_CHECKING, Optional
 
 from vnpy.trader.constant import Direction
-from vnpy.trader.object import TickData, OrderData, TradeData, ContractData
-from vnpy.trader.utility import round_to
+from Pandora.trader.object import TickData, OrderData, TradeData, ContractData
+from Pandora.trader.utility import round_to
 
 from .template import SpreadAlgoTemplate
 from .base import SpreadData, LegData

@@ -1,8 +1,8 @@
 from typing import List, Dict
 from datetime import datetime
 
-from vnpy.trader.utility import ArrayManager
-from vnpy.trader.object import TickData, BarData
+from Pandora.trader.utility import ArrayManager
+from Pandora.trader.object import TickData, BarData
 from vnpy.trader.constant import Direction
 
 from vnpy.app.vnpy_portfoliostrategy import StrategyTemplate, StrategyEngine

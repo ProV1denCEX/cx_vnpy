@@ -8,8 +8,8 @@ from vnpy.trader.ui.widget import COLOR_BID, COLOR_ASK, COLOR_BLACK
 from vnpy.trader.event import (
     EVENT_TICK, EVENT_TRADE, EVENT_POSITION, EVENT_TIMER
 )
-from vnpy.trader.object import TickData, TradeData, PositionData
-from vnpy.trader.utility import round_to
+from Pandora.trader.object import TickData, TradeData, PositionData
+from Pandora.trader.utility import round_to
 
 from ..engine import OptionEngine
 from ..base import UnderlyingData, OptionData, ChainData, PortfolioData, InstrumentData

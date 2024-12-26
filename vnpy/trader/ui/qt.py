@@ -10,7 +10,7 @@ import qdarkstyle
 from PySide6 import QtGui, QtWidgets, QtCore
 
 from ..setting import SETTINGS
-from ..utility import get_icon_path
+from Pandora.trader.utility import get_icon_path
 
 
 Qt = QtCore.Qt

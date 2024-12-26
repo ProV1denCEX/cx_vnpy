@@ -4,10 +4,10 @@ from typing import List, Optional, Callable
 
 from vnpy.trader.engine import BaseEngine, MainEngine, EventEngine
 from vnpy.trader.constant import Interval, Exchange, Product
-from vnpy.trader.object import BarData, TickData, ContractData, HistoryRequest
+from Pandora.trader.object import BarData, TickData, ContractData, HistoryRequest
 from vnpy.trader.database import BaseDatabase, get_database, BarOverview, DB_TZ
 from vnpy.trader.datafeed import BaseDatafeed, get_datafeed
-from vnpy.trader.utility import ZoneInfo, BarGenerator, generate_vt_symbol
+from Pandora.trader.utility import ZoneInfo, BarGenerator
 
 APP_NAME = "DataManager"
 

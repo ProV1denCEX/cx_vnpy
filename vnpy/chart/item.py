@@ -4,7 +4,7 @@ from typing import List, Dict, Tuple
 import pyqtgraph as pg
 
 from vnpy.trader.ui import QtCore, QtGui, QtWidgets
-from vnpy.trader.object import BarData
+from Pandora.trader.object import BarData
 
 from .base import BLACK_COLOR, UP_COLOR, DOWN_COLOR, PEN_WIDTH, BAR_WIDTH
 from .manager import BarManager

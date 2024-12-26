@@ -5,9 +5,9 @@ from datetime import datetime, timedelta
 from vnpy.trader.ui import QtWidgets, QtCore
 from vnpy.trader.engine import MainEngine, EventEngine
 from vnpy.trader.constant import Interval, Exchange, Product
-from vnpy.trader.object import BarData
+from Pandora.trader.object import BarData
 from vnpy.trader.database import DB_TZ
-from vnpy.trader.utility import available_timezones
+from Pandora.trader.utility import available_timezones
 
 from ..engine import APP_NAME, ManagerEngine, BarOverview
 

@@ -1,16 +1,14 @@
 from datetime import datetime, timedelta
-from typing import Dict, List, Set, Optional, Callable
+from typing import Dict, List, Optional, Callable
 
-import numpy as np
 import pandas as pd
 from pyTSL import Client, DoubleToDatetime
 
-from Pandora.constant import SymbolSuffix
+from Pandora.constant import SymbolSuffix, Exchange, Interval, Product, OptionType
 from vnpy.trader.database import get_database
 from vnpy.trader.setting import SETTINGS
-from vnpy.trader.constant import Exchange, Interval, Product, OptionType
-from vnpy.trader.object import BarData, TickData, HistoryRequest, ContractData
-from vnpy.trader.utility import ZoneInfo, generate_ticker
+from Pandora.trader.object import BarData, TickData, HistoryRequest, ContractData
+from Pandora.trader.utility import ZoneInfo
 from vnpy.trader.datafeed import BaseDatafeed
 
 EXCHANGE_MAP: Dict[Exchange, str] = {

@@ -3,7 +3,7 @@ from types import ModuleType
 from typing import Optional, List, Callable
 from importlib import import_module
 
-from .object import HistoryRequest, TickData, BarData, ContractData
+from Pandora.trader.object import HistoryRequest, TickData, BarData, ContractData
 from .setting import SETTINGS
 
 

@@ -24,12 +24,6 @@ from pathlib import Path
 
 import importlib_metadata
 from vnpy.trader.app import BaseApp
-from vnpy.trader.object import (
-    OrderData,
-    TradeData,
-    TickData,
-    BarData
-)
 
 from .engine import (
     SpreadEngine,

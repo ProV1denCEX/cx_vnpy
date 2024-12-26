@@ -3,8 +3,8 @@ from datetime import datetime
 
 import numpy as np
 
-from vnpy.trader.utility import BarGenerator
-from vnpy.trader.object import TickData, BarData
+from Pandora.trader.utility import BarGenerator
+from Pandora.trader.object import TickData, BarData
 from vnpy.trader.constant import Direction
 
 from vnpy.app.vnpy_portfoliostrategy import StrategyTemplate, StrategyEngine

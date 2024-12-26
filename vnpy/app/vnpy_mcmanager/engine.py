@@ -1,16 +1,14 @@
 from copy import copy
-from datetime import timedelta, time, datetime, date
-from typing import Callable, Dict, Optional
+from datetime import timedelta, time, datetime
 
 from Pandora.constant import SymbolSuffix
 from Pandora.helper import TDays
 from vnpy.event import Event, EventEngine
 from vnpy.trader.database import get_database
-from vnpy.trader.gateway import BaseGateway
-from vnpy.trader.object import OrderRequest, LogData, TickData, SubscribeRequest, ContractData
+from Pandora.trader.object import LogData, TickData, SubscribeRequest, ContractData
 from vnpy.trader.engine import BaseEngine, MainEngine
-from vnpy.trader.event import EVENT_TRADE, EVENT_ORDER, EVENT_LOG, EVENT_TIMER, EVENT_CONTRACT, EVENT_TICK
-from vnpy.trader.constant import Direction, Status, Exchange, Product
+from vnpy.trader.event import EVENT_LOG, EVENT_CONTRACT, EVENT_TICK
+from vnpy.trader.constant import Product
 
 APP_NAME = "MainContractManager"
 GATEWAY_NAME = "MC"

@@ -255,8 +255,8 @@ main_engine.add_app(PortfolioStrategyApp)
 from typing import List, Dict
 from datetime import datetime
 
-from vnpy.trader.utility import ArrayManager, Interval
-from vnpy.trader.object import TickData, BarData
+from Pandora.trader.utility import ArrayManager, Interval
+from Pandora.trader.object import TickData, BarData
 from vnpy_portfoliostrategy import StrategyTemplate, StrategyEngine
 from vnpy_portfoliostrategy.utility import PortfolioBarGenerator
 ```

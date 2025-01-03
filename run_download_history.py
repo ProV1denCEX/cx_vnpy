@@ -1,8 +1,10 @@
 # flake8: noqa
 import datetime as dt
+import time
 
 import numpy as np
 import pandas as pd
+from joblib import Parallel, delayed
 from tqdm.auto import tqdm
 
 from Pandora.constant import SymbolSuffix
@@ -272,7 +274,6 @@ def calculate_option_greeks(start_date, end_date, output=print, symbol_underlyin
     for underlying_symbol in symbol_underlyings:
         data = api.get_option_chain(underlying_symbol, product, start, end, None, option_fields=['datetime', 'symbol', 'interval', 'close_price'])
 
-        greeks = []
         option_chain = data[underlying_symbol]
         spot = option_chain['bar_underlying'][['datetime', 'exchange', 'interval', 'close_price']]
         option_price = option_chain['bar_options']
@@ -294,47 +295,52 @@ def calculate_option_greeks(start_date, end_date, output=print, symbol_underlyin
         info['time_to_expire'] = info.loc[:, 'ptm_trade_day'] / ANNUAL_DAYS
 
         mat = mat.merge(info, how='left').merge(rf, how='left').dropna()
-        with tqdm(total=len(mat), desc=f"calculating greeks for options of {underlying_symbol}") as pbar:
-            for idx in range(len(mat)):
-                d = mat.iloc[idx, :]
-                iv = model.calculate_impv(
-                    d['close_price'],
-                    d['close_price_spot'],
-                    d['option_strike'],
-                    d['rate'],
-                    d['time_to_expire'],
-                    d['option_type']
-                )
 
-                price, delta, gamma, theta, vega = model.calculate_greeks(
-                    d['close_price_spot'],
-                    d['option_strike'],
-                    d['rate'],
-                    d['time_to_expire'],
-                    iv,
-                    d['option_type']
-                )
-
-                greeks.append(
-                    {
-                        'symbol': d['symbol'],
-                        'exchange': d['exchange'],
-                        'datetime': d['datetime'],
-                        'interval': d['interval'],
-                        'iv': iv,
-                        'delta': delta,
-                        'gamma': gamma,
-                        'vega': vega,
-                        'theta': theta,
-                    }
-                )
-
-                pbar.update()
+        greeks = Parallel(n_jobs=-1)(  # n_jobs=-1 表示使用所有CPU核心
+            delayed(calc_option_greeks)(model, row)
+            for idx, row in mat.iterrows()
+        )
 
         if greeks:
             greeks = pd.DataFrame(greeks)
             table_name = api.dolphindb.get_table_name("option_greeks", Product.OPTION)
             api.dolphindb.upsert(table_name, greeks, on='datetime')
+
+
+def calc_option_greeks(model, d):
+    iv = model.calculate_impv(
+        d['close_price'],
+        d['close_price_spot'],
+        d['option_strike'],
+        d['rate'],
+        d['time_to_expire'],
+        d['option_type']
+    )
+
+    if iv:
+        price, delta, gamma, theta, vega = model.calculate_greeks(
+            d['close_price_spot'],
+            d['option_strike'],
+            d['rate'],
+            d['time_to_expire'],
+            iv,
+            d['option_type']
+        )
+
+    else:
+        delta = gamma = theta = vega = 0
+
+    return {
+        'symbol': d['symbol'],
+        'exchange': d['exchange'],
+        'datetime': d['datetime'],
+        'interval': d['interval'],
+        'iv': iv,
+        'delta': delta,
+        'gamma': gamma,
+        'vega': vega,
+        'theta': theta,
+    }
 
 
 if __name__ == "__main__":
@@ -354,8 +360,8 @@ if __name__ == "__main__":
     #
     #     start_ = end_
 
-    # start, end, _ = TDays.interval(end_hour=0, fmt=None)
+    start, end, _ = TDays.interval(end_hour=0, fmt=None)
 
-    # calculate_option_greeks(start, end)
+    calculate_option_greeks(start, end)
 
-    download_future_tick_history()
+    # download_future_tick_history()

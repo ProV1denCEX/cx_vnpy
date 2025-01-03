@@ -152,8 +152,8 @@ def update_futures_ticks(start_date, end_date, output=print, symbol_set=MC_SYMBO
 
                 # count = data_manager.delete_tick_data(contract.symbol, contract.exchange, contract.product, start_, end_)
                 # output(f"delete tick {ticker} from {start_} to {end_} {count}")
-                ticks = data_manager.load_tick_data(contract.symbol, contract.exchange, start_, end_)
-                count1 = len(ticks)
+                # ticks = data_manager.load_tick_data(contract.symbol, contract.exchange, start_, end_)
+                # count1 = len(ticks)
 
                 count2 = data_manager.download_tick_data(
                     symbol = contract.symbol,
@@ -164,10 +164,10 @@ def update_futures_ticks(start_date, end_date, output=print, symbol_set=MC_SYMBO
                     contract=contract
                 )
 
-                ticks = data_manager.load_tick_data(contract.symbol, contract.exchange, start_, end_)
-                count3 = len(ticks)
+                # ticks = data_manager.load_tick_data(contract.symbol, contract.exchange, start_, end_)
+                # count3 = len(ticks)
 
-                output(f"{contract.name} download {count1} - {count2} - {count3} from {start_} to {end_} @ {dt.datetime.now()}")
+                output(f"{contract.name} download {count2}  from {start_} to {end_} @ {dt.datetime.now()}")
 
             pbar.update()
 

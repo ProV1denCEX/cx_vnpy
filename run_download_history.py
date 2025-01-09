@@ -196,6 +196,7 @@ def download_option_underlying_history():
     idxs = data_manager.load_contract_data(product=Product.INDEX)
 
     contracts = etfs + idxs
+    # contracts = [i for i in idxs if i.symbol == "000905"]
 
     with tqdm(total=len(contracts)) as pbar:
         for contract in contracts:
@@ -360,8 +361,10 @@ if __name__ == "__main__":
     #
     #     start_ = end_
 
-    start, end, _ = TDays.interval(end_hour=0, fmt=None)
+    # start, end, _ = TDays.interval(end_hour=0, fmt=None)
 
-    calculate_option_greeks(start, end)
+    # calculate_option_greeks(start, end)
 
     # download_future_tick_history()
+
+    download_option_underlying_history()

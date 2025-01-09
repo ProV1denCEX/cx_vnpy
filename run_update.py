@@ -303,17 +303,17 @@ def update_option_underlyings(start_date, end_date, output=print, symbol_set=LIS
 
 if __name__ == "__main__":
     # start = end = "2024-01-16"
-    # start, end, _ = TDays.interval(end_hour=0, fmt=None)
-    days = TDays.interval(days=5, fmt=None)
+    start, end, _ = TDays.interval(end_hour=0, fmt=None)
+    # days = TDays.interval(days=5, fmt=None)
 
     # start = end = TDays.get_tday(end_hour=0)
     # run(start, end)
 
-    update_futures_ticks(days[0], days[5], symbol_set=ALL_SYMBOL)
+    # update_futures_ticks(days[0], days[5], symbol_set=ALL_SYMBOL)
 
     # update_futures(start, end)
     # update_options(start, end)
-    # update_option_underlyings(start, end)
+    update_option_underlyings(start, end)
 
     # days = TDays.interval(days=5, fmt=None)
     # start = days[0]

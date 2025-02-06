@@ -287,7 +287,7 @@ def calculate_option_greeks(start_date, end_date, output=print, symbol_underlyin
                                                   suffixes=('', '_exp'))
         contract_options = contract_options.merge(calendar, left_on='datetime', right_on='Date', suffixes=('', '_dt'))
 
-        contract_options['ptm_trade_day'] = contract_options['index'] - contract_options['index_dt']
+        contract_options['ptm_trade_day'] = contract_options['index'] - contract_options['index_dt'] + 1
 
         info = contract_options[
             ['symbol', 'datetime', 'size', 'option_type', 'option_strike', 'ptm_trade_day']]
@@ -361,10 +361,10 @@ if __name__ == "__main__":
     #
     #     start_ = end_
 
-    # start, end, _ = TDays.interval(end_hour=0, fmt=None)
+    start, end, _ = TDays.interval(end_hour=0, fmt=None)
 
-    # calculate_option_greeks(start, end)
+    calculate_option_greeks(start, end)
 
     # download_future_tick_history()
 
-    download_option_underlying_history()
+    # download_option_underlying_history()
